@@ -16,7 +16,7 @@ from qris_saweria import create_payment_qr, check_paid_status
 
 # ---------------- CONFIG ----------------
 TOKEN = os.getenv('TOKEN', "")
-GROUP_ID = int(os.getenv('GROUP_ID', ""))
+GROUP_ID = int(os.getenv('GROUP_ID', "-1002703061780"))
 OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
 SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
 DURATION_DAYS = int(os.getenv('DURATION_DAYS', 30))
