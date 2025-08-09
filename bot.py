@@ -15,7 +15,7 @@ from pymongo import MongoClient
 from qris_saweria import create_payment_qr, check_paid_status
 
 # ---------------- CONFIG ----------------
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv('TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
 GROUP_ID = int(os.getenv('GROUP_ID', -1001234567890))
 OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
 SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
