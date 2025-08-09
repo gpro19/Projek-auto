@@ -1,5 +1,6 @@
-python-telegram-bot==20.6
-Flask==2.3.2
+python-telegram-bot==21.3
+Flask==3.0.3
+pymongo==4.7.3
 APScheduler==3.10.4
-pymongo==4.6.1
-qris_saweria
+python-dotenv==1.0.1
+qris-saweria
