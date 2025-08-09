@@ -1,4 +1,3 @@
-
 import logging
 import datetime
 import os
@@ -15,6 +14,7 @@ from telegram.ext import (
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pymongo import MongoClient
 from qris_saweria import create_payment_qr, check_paid_status
+
 
 # ---------------- CONFIG ----------------
 TOKEN = os.getenv('TOKEN', "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q")
@@ -252,13 +252,14 @@ async def main():
     logger.info("Scheduler berhasil diatur.")
 
     # Jalankan bot polling dan server Flask secara bersamaan
-    # Gunakan mode 'development' di Flask untuk menyederhanakan konfigurasi
-    # namun, disarankan untuk menggunakan gunicorn di produksi.
-    # Di sini, gunicorn akan menjalankan Flask, dan event loop asyncio akan berjalan
-    # di background untuk bot dan scheduler.
-    app.config["ENV"] = "development"
     web_server = asyncio.create_task(
-        asyncio.to_thread(app.run, host="0.0.0.0", port=PORT, debug=False)
+        asyncio.to_thread(
+            app.run,
+            host="0.0.0.0",
+            port=PORT,
+            debug=False,
+            use_reloader=False  # Matikan reloader agar tidak ada duplikasi proses
+        )
     )
     bot_task = asyncio.create_task(bot_polling())
     
