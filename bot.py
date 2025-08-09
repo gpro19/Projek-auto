@@ -1,20 +1,19 @@
 import logging
 import datetime
 import os
-import asyncio
-from flask import Flask, request, jsonify
+import threading
+import time
+from flask import Flask, jsonify
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
-    CallbackQueryHandler,
-    CallbackContext
+    CallbackQueryHandler
 )
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from pymongo import MongoClient
 from qris_saweria import create_payment_qr, check_paid_status
-
 
 # ---------------- CONFIG ----------------
 TOKEN = os.getenv('TOKEN', "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q")
@@ -26,22 +25,43 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://gpro:gpro@tebak9ambar.dioht2p.
 PORT = int(os.environ.get('PORT', 8000))
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'MzCoder')
 
-
 # ---------------- INITIALIZATION ----------------
 app = Flask(__name__)
 client = MongoClient(MONGO_URI)
 db = client['telegram_membership']
 subs_collection = db['subscriptions']
-scheduler = AsyncIOScheduler()
+scheduler = BackgroundScheduler()
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Gunakan mode sinkron untuk handlers karena bot akan berjalan di thread terpisah
 application = Application.builder().token(TOKEN).build()
 
 # ---------------- COMMAND HANDLERS ----------------
+# NOTE: Semua handlers di bawah ini harus sinkron (tanpa `async`)
+# karena scheduler dan bot polling akan berjalan di BackgroundScheduler/threading.
+
+def check_expired_users():
+    """Tugas latar belakang untuk mengeluarkan pengguna yang langganannya habis."""
+    logger.info("🔄 Memeriksa langganan yang kedaluwarsa...")
+    now = datetime.datetime.utcnow()
+    expired_users = subs_collection.find({"status": "active", "expires_at": {"$lt": now}})
+
+    for user in expired_users:
+        try:
+            application.bot.ban_chat_member(
+                chat_id=GROUP_ID,
+                user_id=user["user_id"],
+                until_date=datetime.datetime.now() + datetime.timedelta(minutes=1)
+            )
+            subs_collection.update_one({"user_id": user["user_id"]}, {"$set": {"status": "expired"}})
+            logger.info(f"User {user['username']} dikeluarkan karena langganan habis.")
+        except Exception as e:
+            logger.error(f"Gagal kick user {user['user_id']}: {e}")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menyambut pengguna baru."""
@@ -55,7 +75,6 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Memulai proses berlangganan dengan QRIS."""
     user = update.effective_user
     email = f"{user.username}@telegram.id"
-
     existing_sub = subs_collection.find_one({"user_id": user.id, "status": "active"})
     if existing_sub:
         expires = existing_sub["expires_at"].strftime("%d-%m-%Y %H:%M")
@@ -84,12 +103,10 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
             upsert=True
         )
 
-        keyboard = [
-            [
-                InlineKeyboardButton("✅ Verifikasi Pembayaran", callback_data=f"verify_{transaction_id}"),
-                InlineKeyboardButton("❌ Batalkan", callback_data="cancel")
-            ]
-        ]
+        keyboard = [[
+            InlineKeyboardButton("✅ Verifikasi Pembayaran", callback_data=f"verify_{transaction_id}"),
+            InlineKeyboardButton("❌ Batalkan", callback_data="cancel")
+        ]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         caption_text = (
@@ -100,7 +117,6 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ **Manfaat:** Setelah pembayaran diverifikasi, kamu akan langsung mendapatkan tautan untuk bergabung ke grup eksklusif kami.\n\n"
             f"❗ **Bantuan:** Jika kamu mengalami kendala setelah membayar, silakan hubungi admin: @{ADMIN_USERNAME}"
         )
-
         await update.message.reply_photo(
             photo=open(qr_path, 'rb'),
             caption=caption_text,
@@ -154,7 +170,6 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     }
                 }
             )
-
             await update.message.reply_text(
                 f"✅ Pembayaran sukses!\nKlik link berikut untuk gabung grup:\n\n{invite_link.invite_link}"
             )
@@ -165,20 +180,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menangani klik tombol inline."""
     query = update.callback_query
     await query.answer()
-
     data = query.data
     user = update.effective_user
 
     if data.startswith("verify_"):
         transaction_id = data.split("_", 1)[1]
         user_data = subs_collection.find_one({"user_id": user.id})
-
         if not user_data or user_data['transaction_id'] != transaction_id:
             await query.edit_message_caption("Transaksi tidak valid atau sudah kadaluwarsa.")
             return
 
         await query.edit_message_caption("🔄 Mengecek status pembayaran...")
-
         is_paid = check_paid_status(transaction_id)
         if is_paid:
             expires_at = datetime.datetime.utcnow() + datetime.timedelta(days=DURATION_DAYS)
@@ -187,7 +199,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 member_limit=1,
                 expire_date=expires_at
             )
-
             subs_collection.update_one(
                 {"user_id": user.id},
                 {
@@ -198,7 +209,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     }
                 }
             )
-
             await query.edit_message_caption(
                 f"✅ Pembayaran sukses!\nKlik link berikut untuk gabung grup:\n\n{invite_link.invite_link}"
             )
@@ -207,63 +217,37 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "cancel":
         await query.edit_message_caption("❌ Pembayaran dibatalkan. Ketik /subscribe untuk mencoba lagi.")
 
-# ---------------- EXPIRED CHECK JOB ----------------
-
-async def check_expired_users():
-    """Tugas latar belakang untuk mengeluarkan pengguna yang langganannya habis."""
-    logger.info("🔄 Memeriksa langganan yang kedaluwarsa...")
-    now = datetime.datetime.utcnow()
-    expired_users = subs_collection.find({"status": "active", "expires_at": {"$lt": now}})
-
-    for user in expired_users:
-        try:
-            await application.bot.ban_chat_member(
-                chat_id=GROUP_ID,
-                user_id=user["user_id"],
-                until_date=datetime.datetime.now() + datetime.timedelta(minutes=1)
-            )
-            subs_collection.update_one({"user_id": user["user_id"]}, {"$set": {"status": "expired"}})
-            logger.info(f"User {user['username']} dikeluarkan karena langganan habis.")
-        except Exception as e:
-            logger.error(f"Gagal kick user {user['user_id']}: {e}")
 
 # ---------------- FLASK ROUTES ----------------
 
 @app.route("/")
-async def index():
+def index():
     """Endpoint untuk memeriksa status server."""
     return jsonify({"message": "Bot is running! by @MzCoder"})
 
 # ---------------- STARTUP ----------------
-async def bot_polling():
-    """Fungsi asinkron untuk menjalankan bot dalam mode polling."""
-    logger.info("Bot is running in polling mode.")
-    await application.run_polling()
 
-async def main():
-    """Fungsi utama untuk menjalankan bot polling dan Flask dalam satu event loop."""
+def bot_polling_thread():
+    """Fungsi untuk menjalankan bot dalam thread terpisah."""
+    logger.info("Bot is running in polling mode.")
+    application.run_polling()
+
+if __name__ == '__main__':
+    # Tambahkan semua handler ke aplikasi bot
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("subscribe", subscribe))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CallbackQueryHandler(handle_callback))
 
+    # Jadwal tugas cek expired users dengan BackgroundScheduler
     scheduler.add_job(check_expired_users, 'interval', hours=12)
     scheduler.start()
     logger.info("Scheduler berhasil diatur.")
 
-    # Jalankan bot polling dan server Flask secara bersamaan
-    web_server = asyncio.create_task(
-        asyncio.to_thread(
-            app.run,
-            host="0.0.0.0",
-            port=PORT,
-            debug=False,
-            use_reloader=False  # Matikan reloader agar tidak ada duplikasi proses
-        )
-    )
-    bot_task = asyncio.create_task(bot_polling())
-    
-    await asyncio.gather(web_server, bot_task)
+    # Jalankan bot polling di thread terpisah
+    bot_thread = threading.Thread(target=bot_polling_thread, daemon=True)
+    bot_thread.start()
 
-if __name__ == '__main__':
-    asyncio.run(main())
+    # Jalankan server Flask di thread utama
+    app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
+
