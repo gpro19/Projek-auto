@@ -20,10 +20,10 @@ GROUP_ID = int(os.getenv('GROUP_ID', "-1002703061780"))
 OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
 SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
 DURATION_DAYS = int(os.getenv('DURATION_DAYS', 30))
-MONGO_URI = os.getenv("MONGO_URI", "")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://gpro:gpro@tebak9ambar.dioht2p.mongodb.net/?retryWrites=true&w=majority")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://tough-cloris-usgerbt-16f5d57a.koyeb.app/webhook")
 PORT = int(os.environ.get('PORT', 8000))
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', '')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'MzCoder')
 
 # ---------------- INITIALIZATION ----------------
 app = Flask(__name__)
