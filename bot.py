@@ -15,7 +15,7 @@ from pymongo import MongoClient
 from qris_saweria import create_payment_qr, check_paid_status
 
 # ---------------- CONFIG ----------------
-TOKEN = os.getenv('TOKEN', "")
+TOKEN = os.getenv('TOKEN', "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q")
 GROUP_ID = int(os.getenv('GROUP_ID', "-1002703061780"))
 OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
 SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
