@@ -1,6 +1,4 @@
-python-telegram-bot
-apscheduler
-pymongo
-flask[async]
-qris-saweria
-python-dotenv
+python-telegram-bot==20.6
+Flask==2.3.2
+APScheduler==3.10.4
+pymongo==4.6.1
