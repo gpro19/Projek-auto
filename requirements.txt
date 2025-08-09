@@ -3,3 +3,4 @@ apscheduler
 pymongo
 flask[async]
 qris-saweria
+python-dotenv
