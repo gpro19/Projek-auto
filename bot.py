@@ -15,14 +15,14 @@ from pymongo import MongoClient
 from qris_saweria import create_payment_qr, check_paid_status  # Asumsi modul ini ada
 
 # ---------------- KONFIGURASI ----------------
-TOKEN = os.getenv('TOKEN')
-GROUP_ID = int(os.getenv('GROUP_ID'))
-OWNER_USERNAME = os.getenv('OWNER_USERNAME')
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
+TOKEN = os.getenv('TOKEN', "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q")
+GROUP_ID = int(os.getenv('GROUP_ID', "-1002703061780"))
+OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
 SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
 DURATION_DAYS = int(os.getenv('DURATION_DAYS', 30))
-MONGO_URI = os.getenv("MONGO_URI")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://gpro:gpro@tebak9ambar.dioht2p.mongodb.net/?retryWrites=true&w=majority")
 PORT = int(os.environ.get('PORT', 8000))
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'MzCoder')
 
 # Validasi konfigurasi
 if not all([TOKEN, GROUP_ID, OWNER_USERNAME, ADMIN_USERNAME, MONGO_URI]):
