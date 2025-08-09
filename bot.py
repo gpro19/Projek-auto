@@ -11,10 +11,9 @@ from flask import Flask, request, jsonify
 
 # ---------------- CONFIG ----------------
 # Ambil dari environment variable untuk keamanan, atau ganti dengan string Anda
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv('TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
 GROUP_ID = int(os.getenv('GROUP_ID', -1001234567890))
-OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
-SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
+OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuildSUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
 DURATION_DAYS = int(os.getenv('DURATION_DAYS', 30))
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 
@@ -24,6 +23,79 @@ PORT = int(os.environ.get('PORT', 5000))
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'rizyul04')
 
 # ---------------- INITIALIZATION ----------------
+app = Flask(__name__)
+client = MongoClient(MONGO_URI)
+db = client['telegram_membership']
+subs_collection = db['subscriptions']
+scheduler = AsyncIOScheduler()
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=PTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
+DURATION_DAYS = int(os.getenv('DURATION_DAYS', 30))
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+
+# URL webhook harus diatur di lingkungan produksi
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://your-domain.com/webhook")
+PORT = int(os.environ.get('PORT', 5000))
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'rizyul04')
+
+# -----TOKEN = os.getenv('', 'YOUR_TELEGRAM_BOT_TOKEN')
+GROUP_ID = int(os.getenv('GROUP_ID', -1001234567890))
+OWNER_USERNAME = os.getenv('OWNER_USERNAME', 'anonbuilder')
+SUBSCRIPTION_PRICE = int(os.getenv('SUBSCRIPTION_PRICE', 10000))
+DURATION_DAYS = int(os.getenv('DURATION_DAYS', 30))
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+
+# URL webhook harus diatur di lingkungan produksi
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://your-domain.com/webhook")
+PORT = int(os.environ.get('PORT', 5000))
+ADMIN_USERNAME = os.getenv('ADMI----------- menjelaskan fungsi bot."""
+    await update.message.reply_text(
+        "Halo! 👋 Selamat datang di bot keanggotaan kami.\n\n"
+        "Untuk mendapatkan akses ke grup eksklusif kami, silakan ketik /subscribe.\n"
+        "Jika Anda sudah membayar, ketik /status untuk mendapatkan link grup Anda."
+    )
+
+async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Memulai proses berlangganan baru dengan tombol verifikasi."""
+    user = update.effective_user
+    email = f"{user.username}@telegram.id"
+
+    existing_sub = subs_collection.find_one({"user_id": user.id, "status": "active"})
+    if existing_sub:
+        expires = existing_sub["expires_at"].strftime("%d-%m-%Y %H:%M")
+        await update.message.reply_text(f"Langganan kamu masih aktif sampai {expires}.")
+        return
+
+    try:
+        qr_string, transaction_id, qr_path = create_payment_qr(
+            OWNER_USERNAME,
+            SUBSCRIPTION_PRICE,
+            email,
+            f"{user.id}_qris.png",
+            False
+        )
+
+        subs_collection.update_one(
+            {"user_id": user.id},
+            {
+                "$set": {
+                    "username": user.username,
+                    "transaction_id": transaction_id,
+                    "status": "pending",
+                    "created_at": datetime.datetime.utcnow(),
+                }
+            },
+            upsert=True
+        )
+
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Verifikasi Pembayaran", callback_data=f"verify_{transaction_id}"),
+                InlineKeyboardButton("❌ Batalkan", callback_data="cancel")
+            ]
+        ]
+        reply_markup = InlineKeION ----------------
 app = Flask(__name__)
 client = MongoClient(MONGO_URI)
 db = client['telegram_membership']
