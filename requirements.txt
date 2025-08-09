@@ -1,5 +1,5 @@
 python-telegram-bot
 apscheduler
 pymongo
-flask
+flask[async]
 qris-saweria
