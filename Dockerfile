@@ -1,17 +1,22 @@
-# Use the official Python image from the Docker Hub
-FROM python:3.9-slim
+# Menggunakan base image Python resmi yang lebih ringan
+FROM python:3.10-slim
 
-# Set the working directory in the container
+# Menetapkan direktori kerja di dalam container
 WORKDIR /app
 
-# Copy the requirements file
+# Menyalin requirements.txt dan menginstal dependensi
 COPY requirements.txt .
-
-# Install the required packages
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the code to the container
+# Menyalin kode aplikasi ke dalam container
 COPY . .
 
-# Command to run the bot
+# Membuat direktori untuk QRIS dan uploads
+RUN mkdir -p /app/qris_images
+RUN mkdir -p /app/uploads
+
+# Menjalankan aplikasi
+# -u untuk memastikan output tidak dibuffer, penting untuk logging
+# Menggunakan Gunicorn atau sejenisnya jika ingin Flask lebih stabil di produksi.
+# Namun, untuk contoh ini, runbot_and_web.py sudah cukup.
 CMD ["python", "bot.py"]
