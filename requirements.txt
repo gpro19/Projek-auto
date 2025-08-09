@@ -1,6 +1,6 @@
-python-telegram-bot==21.3
-Flask==3.0.3
-pymongo==4.7.3
-APScheduler==3.10.4
-python-dotenv==1.0.1
-qris-saweria
+python-telegram-bot==13.7
+pymongo>=4.0
+dnspython>=2.0
+qris-saweria>=1.0
+Flask>=2.0
+python-dotenv>=0.19
