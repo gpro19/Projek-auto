@@ -1,5 +1,5 @@
 python-telegram-bot==13.7  # Or any other version you are using
 flask
 pymongo
-qris_saweria
+qris-saweria
 pytz
