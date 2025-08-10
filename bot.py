@@ -9,6 +9,7 @@ import pytz
 import logging
 from typing import Dict, Optional
 import requests
+import os
 
 # Konfigurasi
 BOT_TOKEN = "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q"
