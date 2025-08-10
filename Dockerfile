@@ -1,32 +1,17 @@
-# Use official Python image
+# Use the official Python image from the Docker Hub
 FROM python:3.9-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV PORT 8000
-ENV FLASK_ENV=production
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create and set working directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
+# Copy the requirements file
 COPY requirements.txt .
+
+# Install the required packages
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the rest of the code to the container
 COPY . .
 
-# Create directory for QR codes
-RUN mkdir -p /app/qr_codes
-
-# Expose the port the app runs on
-EXPOSE $PORT
-
-# Command to run both Flask and Telegram bot
-CMD python bot.py
+# Command to run the bot
+CMD ["python", "bot.py"]
