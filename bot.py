@@ -1,4 +1,3 @@
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 from datetime import datetime, timedelta
@@ -10,19 +9,17 @@ import pytz
 import logging
 import os
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 # Konfigurasi
 BOT_TOKEN = "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q"
 GROUP_ID = "-1002703061780"
 
 ADMIN_USERNAME = "MzCoder"
-SUBSCRIPTION_PRICE = 1000
+SUBSCRIPTION_PRICE = 5000  # Menggunakan nominal dari contoh ForestAPI
 DURATION_DAYS = 30  # Durasi langganan dalam hari
 
-# Payment H2H API Configuration
-API_KEY = "sk-z3c6c8j9rvp5mp"  # <-- Ganti dengan API key Saweria Anda
+# ForestAPI H2H API Configuration
+API_KEY = "sk-z3c6c8j9rvp5mp"  # <-- Ganti dengan API key ForestAPI Anda
 BASE_URL = "https://m.forestapi.web.id"
 
 # Setup Logging
@@ -39,35 +36,23 @@ subs_collection = db['subscriptions']
 # Flask setup
 app = Flask(__name__)
 
-# ---  H2H API Functions ---
-
+# --- ForestAPI H2H API Functions ---
 def create_transaction(user_id, product_price):
     """
-    Creates a new QRIS transaction via Saweria H2H API with retries.
+    Creates a new QRIS transaction via ForestAPI H2H API.
+    Returns transaction_id and qr_image_url on success.
     """
     reff_id = f"trans-{os.urandom(4).hex()}"
-    payload = {
+    params = {
         "nominal": product_price,
-        "method": "QRISFAST",
         "fee_by_customer": "false",
+        "method": "QRISFAST",
         "reff_id": reff_id,
         "api_key": API_KEY
     }
 
-    # Configure retry strategy
-    retry_strategy = Retry(
-        total=3,  # Total number of retries
-        backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
-        status_forcelist=[500, 502, 503, 504],
-        allowed_methods=["POST"]
-    )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    http = requests.Session()
-    http.mount("https://", adapter)
-    http.mount("http://", adapter)
-
     try:
-        response = http.post(f"{BASE_URL}/api/h2h/deposit/create", json=payload, timeout=10)
+        response = requests.get(f"{BASE_URL}/api/h2h/deposit/create", params=params)
         response.raise_for_status()  # Raise an exception for bad status codes
         data = response.json()
 
@@ -82,19 +67,18 @@ def create_transaction(user_id, product_price):
         logger.exception("Gagal membuat transaksi: %s", e)
         raise
 
-
 def check_payment_status(transaction_id):
     """
-    Checks the status of a Saweria transaction.
+    Checks the status of a ForestAPI transaction.
     Returns 'success', 'expired', 'failed', 'pending', or 'error'.
     """
     try:
-        payload = {
+        params = {
             "id": transaction_id,
             "api_key": API_KEY
         }
 
-        response = requests.post(f"{BASE_URL}/api/h2h/deposit/status", json=payload, timeout=10)
+        response = requests.get(f"{BASE_URL}/api/h2h/deposit/status", params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
         
@@ -104,23 +88,6 @@ def check_payment_status(transaction_id):
         logger.exception("Gagal cek status pembayaran: %s", e)
         return "error"
 
-def cancel_payment(transaction_id):
-    """
-    Cancels a pending Saweria transaction.
-    """
-    try:
-        payload = {
-            "id": transaction_id,
-            "api_key": API_KEY
-        }
-        response = requests.post(f"{BASE_URL}/api/h2h/deposit/cancel", json=payload, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("status") == "success"
-    except Exception as e:
-        logger.exception("Gagal membatalkan pembayaran: %s", e)
-        return False
-
 # --- Telegram Bot Handlers ---
 
 def start(update: Update, context: CallbackContext):
@@ -128,7 +95,7 @@ def start(update: Update, context: CallbackContext):
     update.message.reply_text("Halo! Gunakan /subscribe untuk memulai.")
 
 def subscribe(update: Update, context: CallbackContext):
-    """Memulai proses berlangganan dengan QRIS Saweria."""
+    """Memulai proses berlangganan dengan QRIS ForestAPI."""
     user = update.effective_user
     
     existing_sub = subs_collection.find_one({"user_id": user.id, "status": "active"})
@@ -138,7 +105,6 @@ def subscribe(update: Update, context: CallbackContext):
         return
 
     try:
-        # Create a new transaction with Saweria
         payment_info = create_transaction(user.id, SUBSCRIPTION_PRICE)
         transaction_id = payment_info["transaction_id"]
         qr_image_url = payment_info["qr_image_url"]
@@ -167,7 +133,7 @@ def subscribe(update: Update, context: CallbackContext):
         caption_text = (
             f"💸 **Pembayaran Langganan**\n\n"
             f"📌 **Nominal:** Rp{int(SUBSCRIPTION_PRICE):,}\n"
-            f"⏳ **Waktu:** 5 menit\n"
+            f"⏳ **Waktu:** 60 menit\n"
             f"⚠️ **Instruksi:** Silakan bayar menggunakan QRIS di atas. Setelah berhasil, klik tombol **Verifikasi Pembayaran** di bawah ini.\n\n"
             f"✅ **Manfaat:** Setelah pembayaran diverifikasi, kamu akan langsung mendapatkan tautan untuk bergabung ke grup eksklusif kami.\n\n"
             f"❗ **Bantuan:** Jika kamu mengalami kendala setelah membayar, silakan hubungi admin: @{ADMIN_USERNAME}"
@@ -284,9 +250,10 @@ def handle_callback(update: Update, context: CallbackContext):
         else:
             query.edit_message_caption("⚠️ Pembayaran belum diterima. Silakan coba lagi nanti.")
     elif data == "cancel":
+        # Hapus transaksi yang menunggu jika ada
         user_data = subs_collection.find_one({"user_id": user.id, "status": "pending"})
         if user_data:
-            cancel_payment(user_data["transaction_id"])
+            # Karena ForestAPI tidak memiliki endpoint 'cancel', kita hanya menghapus dari database
             subs_collection.delete_one({"user_id": user.id, "status": "pending"})
         
         query.edit_message_caption("❌ Pembayaran dibatalkan. Ketik /subscribe untuk mencoba lagi.")
@@ -326,4 +293,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
