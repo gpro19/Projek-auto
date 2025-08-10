@@ -42,35 +42,33 @@ app = Flask(__name__)
 
 def create_transaction(user_id: int, product_price: int) -> Dict:
     """
-    Creates a new QRIS transaction via ForestAPI H2H API using POST request.
+    Creates a new QRIS transaction via ForestAPI H2H API using exact URL format
     Returns dictionary with transaction_id and qr_image_url on success.
     Raises exception on failure.
     """
-    reff_id = f"trans-{os.urandom(4).hex()}"
+    reff_id = f"trans-{user_id}-{int(time.time())}"  # More readable reference ID
     
-    # Payload dalam format JSON (bisa disesuaikan dengan dokumentasi API)
-    payload = {
+    params = {
         "nominal": product_price,
-        "fee_by_customer": False,  # Boolean, bukan string
+        "fee_by_customer": "false",  # As string "false" not boolean
         "method": "QRISFAST",
         "reff_id": reff_id,
-        "api_key": API_KEY  # Bisa dipindahkan ke headers jika diperlukan
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        # Jika API Key harus di header, gunakan:
-        # "Authorization": f"Bearer {API_KEY}" 
+        "api_key": API_KEY  # Included in URL as per example
     }
 
     try:
-        response = requests.post(
-            f"{BASE_URL}/api/h2h/deposit/create",
-            json=payload,  # Mengirim data sebagai JSON
-            headers=headers,
-            timeout=10
+        # Using GET request with parameters in URL
+        response = requests.get(
+            "https://m.forestapi.web.id/api/h2h/deposit/create",
+            params=params,
+            timeout=15
         )
-        response.raise_for_status()  # Memastikan tidak ada error HTTP
+        
+        # Special handling for connection errors
+        if response.status_code == 502:
+            raise Exception("ForestAPI server is temporarily unavailable")
+            
+        response.raise_for_status()
         data = response.json()
 
         if data.get("status", "").lower() == "success":
@@ -79,14 +77,25 @@ def create_transaction(user_id: int, product_price: int) -> Dict:
                 "qr_image_url": data["data"]["qr_image_url"],
                 "reff_id": reff_id
             }
-        raise Exception(data.get("message", "Unknown error from ForestAPI"))
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error creating transaction: {e}")
-        raise Exception("Network error while creating transaction")
+            
+        # Handle specific API error cases
+        error_msg = data.get("message", "Unknown error from ForestAPI")
+        if "invalid api key" in error_msg.lower():
+            raise Exception("Invalid ForestAPI credentials")
+        raise Exception(error_msg)
+
+    except requests.exceptions.Timeout:
+        raise Exception("ForestAPI request timed out (15s)")
+    except requests.exceptions.SSLError:
+        raise Exception("SSL certificate verification failed")
+    except requests.exceptions.ConnectionError:
+        raise Exception("Could not connect to ForestAPI servers")
     except Exception as e:
-        logger.error(f"Error creating transaction: {e}")
-        raise Exception("Failed to create transaction")
+        logger.error(f"ForestAPI request failed: {str(e)}")
+        raise Exception(f"Payment processing error: {str(e)}")
+
+
+
 
 def check_payment_status(transaction_id):
     """
