@@ -12,10 +12,10 @@ import logging
 import os
 
 # Konfigurasi
-BOT_TOKEN = "7515743847:AAEu5xj47eIJ5blvKPIRZr0Va_e1w0JkLM8"
-GROUP_ID = "-1001802952248"  # Menggunakan GROUP_ID agar lebih jelas
+BOT_TOKEN = "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q"
+GROUP_ID = "-1002703061780"  # Menggunakan GROUP_ID agar lebih jelas
 OWNER_USERNAME = "anonbuilder"
-ADMIN_USERNAME = "anonbuilder" # Menambahkan ADMIN_USERNAME
+ADMIN_USERNAME = "MzCoder" # Menambahkan ADMIN_USERNAME
 SUBSCRIPTION_PRICE = "1000"
 DURATION_DAYS = 30 # Durasi langganan dalam hari
 
@@ -26,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # MongoDB setup
-client = MongoClient("mongodb+srv://galeh:admin@cluster0.slk8m.mongodb.net/?retryWrites=true&w=majority")
+client = MongoClient("mongodb+srv://gpro:gpro@tebak9ambar.dioht2p.mongodb.net/?retryWrites=true&w=majority")
 db = client['telegram_bot']
 subs_collection = db['subscriptions']
 
