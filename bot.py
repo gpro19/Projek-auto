@@ -39,6 +39,7 @@ app = Flask(__name__)
 
 # --- ForestAPI H2H API Functions ---
 
+
 def create_transaction(user_id: int, product_price: int) -> Dict:
     """
     Creates a new QRIS transaction via ForestAPI H2H API using POST request.
@@ -46,26 +47,30 @@ def create_transaction(user_id: int, product_price: int) -> Dict:
     Raises exception on failure.
     """
     reff_id = f"trans-{os.urandom(4).hex()}"
+    
+    # Payload dalam format JSON (bisa disesuaikan dengan dokumentasi API)
     payload = {
         "nominal": product_price,
-        "fee_by_customer": False,  # Note: boolean instead of string
+        "fee_by_customer": False,  # Boolean, bukan string
         "method": "QRISFAST",
-        "reff_id": reff_id
+        "reff_id": reff_id,
+        "api_key": API_KEY  # Bisa dipindahkan ke headers jika diperlukan
     }
 
     headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {API_KEY}'  # Assuming Bearer token auth
+        "Content-Type": "application/json",
+        # Jika API Key harus di header, gunakan:
+        # "Authorization": f"Bearer {API_KEY}" 
     }
 
     try:
         response = requests.post(
             f"{BASE_URL}/api/h2h/deposit/create",
-            json=payload,
+            json=payload,  # Mengirim data sebagai JSON
             headers=headers,
             timeout=10
         )
-        response.raise_for_status()
+        response.raise_for_status()  # Memastikan tidak ada error HTTP
         data = response.json()
 
         if data.get("status", "").lower() == "success":
@@ -75,14 +80,13 @@ def create_transaction(user_id: int, product_price: int) -> Dict:
                 "reff_id": reff_id
             }
         raise Exception(data.get("message", "Unknown error from ForestAPI"))
+    
     except requests.exceptions.RequestException as e:
         logger.error(f"Network error creating transaction: {e}")
         raise Exception("Network error while creating transaction")
     except Exception as e:
         logger.error(f"Error creating transaction: {e}")
         raise Exception("Failed to create transaction")
-
-
 
 def check_payment_status(transaction_id):
     """
