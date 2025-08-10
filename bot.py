@@ -1,5 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, Filters, ContextTypes, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
 import time
 from datetime import datetime, timedelta
 import re
@@ -218,19 +218,20 @@ def run_flask():
     app.run(host='0.0.0.0', port=os.environ.get('PORT', 8000))
 
 def main():
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("subscribe", subscribe))
-    application.add_handler(CommandHandler("status", status))
-    application.add_handler(CallbackQueryHandler(handle_callback))
-    
+    updater = Updater(BOT_TOKEN, use_context=True)
+    dp = updater.dispatcher
+     
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("help", help_command))
+    dp.add_handler(CommandHandler("subscribe", subscribe))
+    dp.add_handler(CommandHandler("status", status))
+    dp.add_handler(CallbackQueryHandler(handle_callback))
+    # Start the Flask app and the bot
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
     
-    application.run_polling()
-
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     main()
