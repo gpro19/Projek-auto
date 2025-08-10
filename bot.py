@@ -7,7 +7,7 @@ import threading
 from pymongo import MongoClient
 import pytz
 import logging
-import os
+from typing import Dict, Optional
 import requests
 
 # Konfigurasi
