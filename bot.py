@@ -10,6 +10,8 @@ import pytz
 import logging
 import os
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Konfigurasi
 BOT_TOKEN = "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q"
@@ -37,11 +39,11 @@ subs_collection = db['subscriptions']
 # Flask setup
 app = Flask(__name__)
 
-# --- Saweria H2H API Functions ---
+# ---  H2H API Functions ---
+
 def create_transaction(user_id, product_price):
     """
-    Creates a new QRIS transaction via Saweria H2H API.
-    Returns transaction_id and qr_image_url on success.
+    Creates a new QRIS transaction via Saweria H2H API with retries.
     """
     reff_id = f"trans-{os.urandom(4).hex()}"
     payload = {
@@ -52,8 +54,20 @@ def create_transaction(user_id, product_price):
         "api_key": API_KEY
     }
 
+    # Configure retry strategy
+    retry_strategy = Retry(
+        total=3,  # Total number of retries
+        backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=["POST"]
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    http = requests.Session()
+    http.mount("https://", adapter)
+    http.mount("http://", adapter)
+
     try:
-        response = requests.post(f"{BASE_URL}/api/h2h/deposit/create", json=payload)
+        response = http.post(f"{BASE_URL}/api/h2h/deposit/create", json=payload, timeout=10)
         response.raise_for_status()  # Raise an exception for bad status codes
         data = response.json()
 
@@ -67,6 +81,7 @@ def create_transaction(user_id, product_price):
     except Exception as e:
         logger.exception("Gagal membuat transaksi: %s", e)
         raise
+
 
 def check_payment_status(transaction_id):
     """
