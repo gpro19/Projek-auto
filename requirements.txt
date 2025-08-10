@@ -1,7 +1,6 @@
 python-telegram-bot==13.7  # Or any other version you are using
 flask
 pymongo
-cloudscraper==1.2.71
-beautifulsoup4==4.12.3
+requests
 qrcode
 pytz
