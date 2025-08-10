@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # MongoDB setup
-client = MongoClient("mongodb+srv://ilham:ilham@tebak9ambar.dioht2p.mongodb.net/?retryWrites=true&w=majority&appName=tebak9ambar")
+client = MongoClient("mongodb+srv://ilham:ilham@cluster0.j50lb7q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client['telegram_bot']
 subs_collection = db['subscriptions']
 
