@@ -13,7 +13,7 @@ import os
 # Konfigurasi
 BOT_TOKEN = "8156404642:AAGUomSAOmFXyoj2Ndka1saAA_t0KjC2H9Q"
 GROUP_ID = "-1002703061780"
-OWNER_USERNAME = "anonbuilder"
+
 ADMIN_USERNAME = "MzCoder"
 SUBSCRIPTION_PRICE = 1000
 DURATION_DAYS = 30 # Durasi langganan dalam hari
@@ -49,7 +49,7 @@ def subscribe(update: Update, context: CallbackContext):
 
     try:
         qr_string, transaction_id, qr_path = create_payment_qr(
-            OWNER_USERNAME,
+            'anonbuilder',
             SUBSCRIPTION_PRICE,
             email,
             f"{user.id}_qris.png",
