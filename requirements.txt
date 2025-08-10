@@ -1,6 +1,5 @@
-python-telegram-bot==13.7
-pymongo>=4.0
-dnspython>=2.0
-qris-saweria>=1.0
-Flask>=2.0
-python-dotenv>=0.19
+python-telegram-bot==13.7  # Or any other version you are using
+flask
+pymongo
+qris_saweria
+pytz
