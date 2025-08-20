@@ -611,7 +611,7 @@ def join_request(update: Update, context: CallbackContext):
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton(
                     "🎮 Gabung Sekarang",
-                    url=f"https://t.me/{context.bot.username}?start=join_{safe_token}}"
+                    url=f"https://t.me/{context.bot.username}?start=join_{safe_token}"
                 )
             ]]),
             parse_mode='Markdown'
