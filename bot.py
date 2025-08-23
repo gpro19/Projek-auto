@@ -36,37 +36,43 @@ ROLES = {
         "description": "🕵️ Koruptor - Tujuan Anda adalah menghindari penangkapan dan mengumpulkan kekayaan ilegal",
         "night_action": "memilih target untuk disuap atau diancam",
         "team": "koruptor",
-        "priority": 1
+        "priority": 1,
+        "emoji": "🕵️"
     },
     "KPK": {
         "description": "👮 Penyidik KPK - Tujuan Anda adalah menangkap semua koruptor",
         "night_action": "menyidik satu pemain untuk mengetahui perannya",
         "team": "penegak_hukum",
-        "priority": 2
+        "priority": 2,
+        "emoji": "👮"
     },
     "Jaksa": {
         "description": "⚖️ Jaksa - Tujuan Anda adalah mendakwa koruptor yang tertangkap",
         "night_action": "melindungi satu pemain dari penyidikan koruptor",
         "team": "penegak_hukum", 
-        "priority": 3
+        "priority": 3,
+        "emoji": "⚖️"
     },
     "Polisi": {
         "description": "👮 Polisi - Tujuan Anda adalah menjaga keamanan dan membantu penegakan hukum",
         "night_action": "mengawasi satu pemain untuk melihat aktivitas mencurigakan",
         "team": "penegak_hukum",
-        "priority": 4
+        "priority": 4,
+        "emoji": "👮‍♂️"
     },
     "Masyarakat": {
         "description": "👨 Masyarakat - Tujuan Anda adalah membantu membersihkan negara dari korupsi",
         "night_action": "tidak memiliki aksi malam",
         "team": "masyarakat",
-        "priority": 5
+        "priority": 5,
+        "emoji": "👨"
     },
     "Whistleblower": {
         "description": "📢 Whistleblower - Tujuan Anda adalah membongkar kasus korupsi tanpa terdeteksi",
         "night_action": "mengungkap informasi tentang satu pemain",
         "team": "masyarakat",
-        "priority": 6
+        "priority": 6,
+        "emoji": "📢"
     }
 }
 
@@ -125,7 +131,8 @@ def get_game(chat_id: int) -> Dict[str, Any]:
             'jobs': [],
             'hari_ke': 0,
             'pemain_mati': [],
-            'night_results': {}
+            'night_results': {},
+            'vote_message_id': None
         }
     return games[chat_id]
 
@@ -319,8 +326,6 @@ def gabung(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Silakan gabung di grup yang sedang bermain!")
         return
-
- 
 
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
@@ -538,7 +543,8 @@ def mulai_permainan(update: Update, context: CallbackContext):
         'skor': {},
         'hari_ke': 1,
         'pemain_mati': [],
-        'night_results': {}
+        'night_results': {},
+        'vote_message_id': None
     })
 
     # Distribusi peran
@@ -584,12 +590,22 @@ def mulai_malam(context: CallbackContext, chat_id: int):
     game['malam_actions'] = {}
     game['night_results'] = {}
     
-    # Kirim pesan ke grup
+    # Kirim pesan ke grup dengan format yang lebih mirip game Mafia
+    malam_text = f"🌃 *Malam yang mengerikan!*\n\n"
+    malam_text += "Hanya yang paling berani dan tak kenal takut yang turun ke jalan. "
+    malam_text += "Kami akan mencoba menghitung yang jatuh di pagi hari...\n\n"
+    
+    # Daftar pemain hidup
+    malam_text += "*Pemain hidup:*\n"
+    for i, pemain in enumerate(game['pemain']):
+        if pemain['id'] not in game['pemain_mati']:
+            malam_text += f"{i+1}. {pemain['nama']}\n"
+    
+    malam_text += f"\n1 menit tersisa untuk tidur"
+    
     context.bot.send_message(
         chat_id=chat_id,
-        text=f"🌙 *MALAM KE-{game['hari_ke']}*\n\n"
-             "Semua pemain tertidur...\n"
-             "Pemain dengan aksi khusus silakan melakukan aksinya via chat pribadi dengan bot.",
+        text=malam_text,
         parse_mode='Markdown'
     )
     
@@ -620,6 +636,12 @@ def mulai_malam(context: CallbackContext, chat_id: int):
                         reply_markup=InlineKeyboardMarkup(keyboard),
                         parse_mode='Markdown'
                     )
+                    # Kirim pesan ke grup
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text="🕵️ Koruptor sedang memilih korbannya...",
+                        parse_mode='Markdown'
+                    )
                 
                 elif peran == "KPK":
                     # KPK bisa menyelidiki peran pemain
@@ -637,6 +659,12 @@ def mulai_malam(context: CallbackContext, chat_id: int):
                              "Pilih target untuk diselidiki:\n"
                              "Anda akan mengetahui peran target.",
                         reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                    # Kirim pesan ke grup
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text="👮 KPK sedang mencari koruptor...",
                         parse_mode='Markdown'
                     )
                 
@@ -658,6 +686,12 @@ def mulai_malam(context: CallbackContext, chat_id: int):
                         reply_markup=InlineKeyboardMarkup(keyboard),
                         parse_mode='Markdown'
                     )
+                    # Kirim pesan ke grup
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text="⚖️ Jaksa sedang bertugas malam...",
+                        parse_mode='Markdown'
+                    )
                 
                 elif peran == "Polisi":
                     # Polisi bisa mengawasi pemain
@@ -677,6 +711,12 @@ def mulai_malam(context: CallbackContext, chat_id: int):
                         reply_markup=InlineKeyboardMarkup(keyboard),
                         parse_mode='Markdown'
                     )
+                    # Kirim pesan ke grup
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text="👮‍♂️ Polisi sedang mengawasi...",
+                        parse_mode='Markdown'
+                    )
                 
                 elif peran == "Whistleblower":
                     # Whistleblower bisa mengungkap informasi
@@ -694,6 +734,12 @@ def mulai_malam(context: CallbackContext, chat_id: int):
                              "Pilih target untuk diungkap informasinya:\n"
                              "Anda akan mengetahui tim target (koruptor/penegak hukum/masyarakat).",
                         reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                    # Kirim pesan ke grup
+                    context.bot.send_message(
+                        chat_id=chat_id,
+                        text="📢 Whistleblower sedang mencari informasi...",
                         parse_mode='Markdown'
                     )
                 
@@ -825,16 +871,22 @@ def mulai_siang(context: CallbackContext, chat_id: int):
     game = get_game(chat_id)
     game['fase'] = 'siang'
     
-    # Kirim hasil malam ke grup
-    hasil_text = "☀️ *SIANG HARI KE-{}*\n\n".format(game['hari_ke'])
+    # Kirim hasil malam ke grup dengan format yang lebih mirip game Mafia
+    hasil_text = f"🏙 *Hari {game['hari_ke']}*\n\n"
+    hasil_text += "Matahari terbit dan mengungkap kejahatan yang terjadi tadi malam...\n\n"
     
-    # Tambahkan info untuk pemain yang disuap
+    # Cek jika ada yang disuap koruptor
+    korban_suapan = []
     for target_id, result in game['night_results'].items():
         if "Disuap oleh Koruptor" in result:
             target_nama = next((p['nama'] for p in game['pemain'] if p['id'] == target_id), "Unknown")
-            hasil_text += f"⚠️ {target_nama} {result}\n"
+            korban_suapan.append(target_nama)
     
-    hasil_text += "\nDiskusikan dan pilih siapa yang akan ditangkap!"
+
+    if korban_suapan:
+        hasil_text += f"⚠️ {', '.join(korban_suapan)} disuap koruptor dan tidak bisa divoting hari ini!\n\n"
+    
+    hasil_text += "Diskusikan dan pilih siapa yang akan ditangkap!"
     
     context.bot.send_message(
         chat_id=chat_id,
@@ -842,16 +894,31 @@ def mulai_siang(context: CallbackContext, chat_id: int):
         parse_mode='Markdown'
     )
     
-    # Buat tombol voting
+    # Buat tombol voting dengan format yang lebih baik
     keyboard = []
+    vote_targets = []
+    
     for pemain in game['pemain']:
-        if pemain['id'] not in game['pemain_mati']:
-            # Cek jika pemain disuap koruptor
-            if pemain['id'] in game['night_results'] and "Disuap oleh Koruptor" in game['night_results'][pemain['id']]:
-                button_text = f"{pemain['nama']} (Tidak bisa divoting)"
-            else:
-                button_text = f"{pemain['nama']} (0 suara)"
-                keyboard.append([InlineKeyboardButton(button_text, callback_data=f"vote_{pemain['id']}")])
+        if (pemain['id'] not in game['pemain_mati'] and 
+            not (pemain['id'] in game['night_results'] and 
+                 "Disuap oleh Koruptor" in game['night_results'][pemain['id']])):
+            vote_targets.append(pemain)
+    
+    # Kelompokkan tombol dalam baris 2 kolom
+    for i in range(0, len(vote_targets), 2):
+        row = []
+        if i < len(vote_targets):
+            row.append(InlineKeyboardButton(
+                f"{vote_targets[i]['nama']} (0)", 
+                callback_data=f"vote_{vote_targets[i]['id']}"
+            ))
+        if i + 1 < len(vote_targets):
+            row.append(InlineKeyboardButton(
+                f"{vote_targets[i+1]['nama']} (0)", 
+                callback_data=f"vote_{vote_targets[i+1]['id']}"
+            ))
+        if row:
+            keyboard.append(row)
     
     if keyboard:  # Hanya jika ada yang bisa divoting
         vote_msg = context.bot.send_message(
@@ -860,14 +927,22 @@ def mulai_siang(context: CallbackContext, chat_id: int):
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
-        game['message_id'] = vote_msg.message_id
+        game['vote_message_id'] = vote_msg.message_id
         
-        # Timer voting
+        # Timer voting (45 detik seperti contoh Mafia)
         context.job_queue.run_once(
             lambda ctx: akhir_voting(ctx, chat_id),
-            120,
+            45,
             context=chat_id,
             name=f"voting_{chat_id}"
+        )
+        
+        # Peringatan waktu voting hampir habis
+        context.job_queue.run_once(
+            lambda ctx: voting_warning(ctx, chat_id),
+            30,
+            context=chat_id,
+            name=f"voting_warning_{chat_id}"
         )
     else:
         # Tidak ada yang bisa divoting, lanjut ke malam berikutnya
@@ -879,6 +954,21 @@ def mulai_siang(context: CallbackContext, chat_id: int):
         game['hari_ke'] += 1
         mulai_malam(context, chat_id)
 
+def voting_warning(context: CallbackContext, chat_id: int):
+    """Peringatan waktu voting hampir habis"""
+    game = get_game(chat_id)
+    
+    if game['fase'] != 'siang':
+        return
+        
+    try:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="⏰ 15 detik lagi untuk voting!",
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        logger.error(f"Gagal kirim peringatan voting: {e}")
 
 def handle_vote(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -911,37 +1001,52 @@ def handle_vote(update: Update, context: CallbackContext):
             return
 
         # Simpan vote
-        if voter_id not in game['suara']:
-            game['suara'][voter_id] = target_id
-            
-            # Update tombol voting
-            vote_count = {}
-            for voter, voted_id in game['suara'].items():
-                if voted_id not in vote_count:
-                    vote_count[voted_id] = 0
-                vote_count[voted_id] += 1
-            
-            # Buat keyboard baru dengan jumlah suara terbaru
-            keyboard = []
-            for pemain in game['pemain']:
-                if pemain['id'] not in game['pemain_mati']:
-                    if pemain['id'] in game['night_results'] and "Disuap oleh Koruptor" in game['night_results'][pemain['id']]:
-                        button_text = f"{pemain['nama']} (Tidak bisa divoting)"
-                    else:
-                        count = vote_count.get(pemain['id'], 0)
-                        button_text = f"{pemain['nama']} ({count} suara)"
-                        keyboard.append([InlineKeyboardButton(button_text, callback_data=f"vote_{pemain['id']}")])
-            
-            try:
-                query.edit_message_reply_markup(
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-                query.answer(f"✅ Kamu memilih {next(p['nama'] for p in game['pemain'] if p['id'] == target_id)}!")
-            except Exception as e:
-                logger.error(f"Error updating buttons: {e}")
-                query.answer("❌ Gagal memperbarui pilihan.", show_alert=True)
-        else:
-            query.answer("❌ Kamu sudah voting!", show_alert=True)
+        game['suara'][voter_id] = target_id
+        
+        # Update tombol voting dengan jumlah suara terbaru
+        vote_count = {}
+        for voter, voted_id in game['suara'].items():
+            if voted_id not in vote_count:
+                vote_count[voted_id] = 0
+            vote_count[voted_id] += 1
+        
+        # Buat keyboard baru dengan jumlah suara terbaru
+        keyboard = []
+        vote_targets = []
+        
+        for pemain in game['pemain']:
+            if (pemain['id'] not in game['pemain_mati'] and 
+                not (pemain['id'] in game['night_results'] and 
+                     "Disuap oleh Koruptor" in game['night_results'][pemain['id']])):
+                vote_targets.append(pemain)
+        
+        # Kelompokkan tombol dalam baris 2 kolom
+        for i in range(0, len(vote_targets), 2):
+            row = []
+            if i < len(vote_targets):
+                count = vote_count.get(vote_targets[i]['id'], 0)
+                row.append(InlineKeyboardButton(
+                    f"{vote_targets[i]['nama']} ({count})", 
+                    callback_data=f"vote_{vote_targets[i]['id']}"
+                ))
+            if i + 1 < len(vote_targets):
+                count = vote_count.get(vote_targets[i+1]['id'], 0)
+                row.append(InlineKeyboardButton(
+                    f"{vote_targets[i+1]['nama']} ({count})", 
+                    callback_data=f"vote_{vote_targets[i+1]['id']}"
+                ))
+            if row:
+                keyboard.append(row)
+        
+        try:
+            query.edit_message_reply_markup(
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            target_nama = next(p['nama'] for p in game['pemain'] if p['id'] == target_id)
+            query.answer(f"✅ Kamu memilih {target_nama}!")
+        except Exception as e:
+            logger.error(f"Error updating buttons: {e}")
+            query.answer("❌ Gagal memperbarui pilihan.", show_alert=True)
 
     except Exception as e:
         logger.error(f"Error in handle_vote: {e}")
@@ -957,6 +1062,13 @@ def akhir_voting(context: CallbackContext, chat_id):
         
         if game['fase'] != 'siang':
             return
+
+        # Hapus pesan voting
+        if game.get('vote_message_id'):
+            try:
+                context.bot.delete_message(chat_id=chat_id, message_id=game['vote_message_id'])
+            except Exception as e:
+                logger.error(f"Gagal hapus pesan voting: {e}")
 
         # Hitung hasil voting
         vote_count = {}
@@ -988,13 +1100,13 @@ def akhir_voting(context: CallbackContext, chat_id):
                     text="Pilih salah satu yang akan ditangkap:",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
-                game['message_id'] = vote_msg.message_id
+                game['vote_message_id'] = vote_msg.message_id
                 game['suara'] = {}  # Reset suara
                 
-                # Timer voting ulang
+                # Timer voting ulang (30 detik)
                 context.job_queue.run_once(
                     lambda ctx: akhir_voting(ctx, chat_id),
-                    60,
+                    30,
                     context=chat_id,
                     name=f"revote_{chat_id}"
                 )
@@ -1009,10 +1121,10 @@ def akhir_voting(context: CallbackContext, chat_id):
                 game['tertangka'].append(tertangkap)
                 game['pemain_mati'].append(tertangkap_id)
                 
-                # Kirim hasil ke grup
+                # Kirim hasil ke grup dengan format yang lebih baik
                 context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"⚖️ *{tertangkap['nama']} ditangkap!*\nPeran: {peran_tertangkap}",
+                    text=f"⚖️ *{tertangkap['nama']} ditangkap!*\nPeran: {ROLES[peran_tertangkap]['emoji']} {peran_tertangkap}",
                     parse_mode='Markdown'
                 )
                 
@@ -1063,7 +1175,7 @@ def cek_kondisi_kemenangan(context: CallbackContext, chat_id):
         for pemain in game['pemain']:
             if pemain['id'] not in game['pemain_mati']:
                 peran = game['roles'][pemain['id']]
-                teks_kemenangan += f"- {pemain['nama']} ({peran})\n"
+                teks_kemenangan += f"- {pemain['nama']} ({ROLES[peran]['emoji']} {peran})\n"
         
         akhir_permainan(context, chat_id, teks_kemenangan)
         
@@ -1075,7 +1187,7 @@ def cek_kondisi_kemenangan(context: CallbackContext, chat_id):
         
         for pemain in game['pemain']:
             if pemain['id'] not in game['pemain_mati'] and ROLES[game['roles'][pemain['id']]]['team'] == 'koruptor':
-                teks_kemenangan += f"- {pemain['nama']} ({game['roles'][pemain['id']]})\n"
+                teks_kemenangan += f"- {pemain['nama']} ({ROLES[game['roles'][pemain['id']]]['emoji']} {game['roles'][pemain['id']]})\n"
         
         akhir_permainan(context, chat_id, teks_kemenangan)
         
@@ -1109,7 +1221,7 @@ def akhir_permainan(context: CallbackContext, chat_id: int, hasil_text: str):
     for pemain in game['pemain']:
         peran = game['roles'][pemain['id']]
         status = "💀 Mati" if pemain['id'] in game['pemain_mati'] else "❤️ Hidup"
-        hasil_text += f"- {pemain['nama']}: {peran} ({status})\n"
+        hasil_text += f"- {pemain['nama']}: {ROLES[peran]['emoji']} {peran} ({status})\n"
     
     # Kirim hasil akhir
     context.bot.send_message(
@@ -1136,7 +1248,7 @@ def cancel_game(update: Update, context: CallbackContext):
 
     # Hapus semua job
     current_jobs = []
-    for job_type in ['malam', 'voting', 'revote', 'prepare_night']:
+    for job_type in ['malam', 'voting', 'revote', 'prepare_night', 'voting_warning']:
         current_jobs += context.job_queue.get_jobs_by_name(f"{job_type}_{chat_id}")
     
     for job in current_jobs:
@@ -1165,12 +1277,14 @@ def status_game(update: Update, context: CallbackContext):
     status_text += "👥 *Pemain Hidup:*\n"
     for pemain in game['pemain']:
         if pemain['id'] not in game['pemain_mati']:
-            status_text += f"- {pemain['nama']}\n"
+            peran = game['roles'][pemain['id']]
+            status_text += f"- {pemain['nama']} ({ROLES[peran]['emoji']} {peran})\n"
     
     status_text += "\n💀 *Pemain Mati:*\n"
     for pemain in game['pemain']:
         if pemain['id'] in game['pemain_mati']:
-            status_text += f"- {pemain['nama']}\n"
+            peran = game['roles'][pemain['id']]
+            status_text += f"- {pemain['nama']} ({ROLES[peran]['emoji']} {peran})\n"
     
     update.message.reply_text(status_text, parse_mode='Markdown')
 
@@ -1216,4 +1330,4 @@ if __name__ == '__main__':
     bot_thread.start()
 
     # Run Flask
-    app.run(host='0.0.0.0', port=8000)        
+    app.run(host='0.0.0.0', port=8000)   
