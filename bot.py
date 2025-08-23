@@ -10,7 +10,7 @@ import threading
 import logging
 from telegram.error import NetworkError
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List
 import base64
 import urllib.parse
 
@@ -23,146 +23,84 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-TOKEN = "7590020235:AAHWRzvO8HGtBHNX3leRZ8Rfyk3kgVgUObc"
+TOKEN = "8417409969:AAHeIjBE73bq2Ubf7uW4mUE_ZuHsSSYx83A"
 # Game configuration
 ALLOWED_GROUP_IDS = (-1001651683956, -1002334351077, -1002540626336)  # Tuple of allowed IDs
-
-KATA = {
-    # Animals (40+ carefully paired words)
-    "Hewan": [
-        ["Singa", "Harimau", "Macan Tutul"],  # Big cats
-        ["Serigala", "Jakal", "Dingo"],       # Wild dogs
-        ["Kuda", "Zebra", "Keledai"],         # Equines
-        ["Gajah", "Badak", "Kuda Nil"],       # Large mammals
-        ["Orangutan", "Gorila", "Simpanse"],  # Great apes
-        ["Panda", "Beruang", "Koala"],        # Bear-like
-        ["Burung Hantu", "Elang", "Falcon"],  # Birds of prey
-        ["Flamingo", "Bangau", "Pelikan"],    # Wading birds
-        ["Kupu-kupu", "Capung", "Belalang"],  # Insects
-        ["Ular", "Kadal", "Biawak"]           # Reptiles
-    ],
-
-    # Foods (40+ carefully paired words)  
-    "Makanan": [
-        ["Sate Ayam", "Sate Kambing", "Sosis"],  # Skewered meats
-        ["Nasi Goreng", "Mie Goreng", "Bihun"],  # Fried staples
-        ["Rendang", "Semur", "Gulai"],           # Saucy meats
-        ["Bakso", "Pempek", "Otak-otak"],        # Shaped meats
-        ["Martabak", "Panekuk", "Wafel"],        # Griddle cakes
-        ["Es Krim", "Es Potong", "Sherbet"],     # Frozen treats
-        ["Pizza", "Lasagna", "Cannelloni"],      # Italian
-        ["Sushi", "Sashimi", "Onigiri"],         # Japanese
-        ["Croissant", "Danish", "Pain au Chocolat"], # Pastries
-        ["Coklat", "Truffle", "Fudge"]           # Chocolates
-    ],
-
-    # Professional (30+ paired occupations)
-    "Profesi": [
-        ["Dokter", "Perawat", "Bidan"],         # Medical
-        ["Guru", "Dosen", "Pelatih"],           # Educators
-        ["Programmer", "Hacker", "IT Support"],  # Tech
-        ["Koki", "Baker", "Barista"],           # Food
-        ["Penyanyi", "Musisi", "DJ"],           # Music
-        ["Aktor", "Sutradara", "Produser"],     # Film
-        ["Polisi", "Tentara", "Satpam"],        # Security
-        ["Arsitek", "Insinyur", "Surveyor"],    # Construction
-        ["Pilot", "Pramugari", "ATC"],          # Aviation
-        ["Petani", "Nelayan", "Peternak"]       # Agriculture
-    ],
-
-    # Sports (25+ similar terms)
-    "Olahraga": [
-        ["Sepak Bola", "Futsal", "Rugby"],     # Ball sports
-        ["Basket", "Netball", "Voli"],         # Net sports
-        ["Tenis", "Bulu Tangkis", "Squash"],   # Racket sports
-        ["Renang", "Menyelam", "Polo Air"],    # Water sports
-        ["Lari", "Maraton", "Lari Estafet"],   # Running
-        ["Binaraga", "Angkat Besi", "Crossfit"], # Strength
-        ["Panahan", "Menembak", "Lempar Tombak"], # Precision
-        ["Balap Motor", "Balap Mobil", "Drag Race"] # Motorsports
-    ],
-    
-    # Office (25+ paired items)
-    "Perkantoran": [
-        ["Printer", "Scanner", "Fotokopi"],    # Office equipment
-        ["Proyektor", "Monitor", "TV Kantor"], # Display
-        ["Keyboard", "Mouse", "Trackpad"],     # Input devices
-        ["Stapler", "Hole Punch", "Paper Clip"], # Stationery
-        ["Kursi", "Meja", "Filing Cabinet"],   # Furniture
-        ["Air Conditioner", "Kipas", "Pemanas"], # Climate
-        ["Whiteboard", "Papan Tulis", "Flipchart"], # Writing
-        ["ID Card", "Name Tag", "Visitor Pass"] # Identification
-    ],
-
-    # Music (30+ similar terms)  
-    "Musik": [
-        ["Gitar", "Bass", "Ukulele"],         # Strings
-        ["Piano", "Keyboard", "Organ"],       # Keys
-        ["Drum", "Bongo", "Kendang"],          # Percussion
-        ["Terompet", "Trombone", "Saxophone"], # Brass
-        ["Flute", "Recorder", "Klarnet"],     # Woodwinds
-        ["Pop", "Rock", "Jazz"],              # Genres
-        ["Konser", "Festival", "Gig"],        # Events
-        ["Spotify", "Apple Music", "Joox"]    # Streaming
-    ],
-
-    # Nature (30+ similar items)
-    "Alam": [
-        ["Gunung", "Bukit", "Lembah"],        # Landforms
-        ["Sungai", "Danau", "Rawa"],          # Water bodies
-        ["Pantai", "Tebing", "Karst"],        # Coastal
-        ["Hujan", "Salju", "Kabut"],          # Weather
-        ["Matahari", "Bulan", "Bintang"],     # Celestial
-        ["Daun", "Ranting", "Bunga"],         # Plant parts
-        ["Pasir", "Kerikil", "Batu"],         # Minerals
-        ["Angin", "Badai", "Tornado"]         # Wind
-    ],
-
-    # Tech (30+ similar terms)
-    "Teknologi": [
-        ["Smartphone", "Tablet", "Smartwatch"], # Devices
-        ["WiFi", "Hotspot", "Ethernet"],      # Networking
-        ["Android", "iOS", "HarmonyOS"],      # OS
-        ["Python", "Java", "JavaScript"],     # Languages
-        ["VR", "AR", "MR"],                   # Reality
-        ["Drone", "Robot", "RC Car"],         # Robotics
-        ["YouTube", "TikTok", "Instagram"],   # Platforms
-        ["Cryptocurrency", "NFT", "Blockchain"] # Web3
-    ]
-}
-
 
 # Game state management
 games: Dict[int, Dict[str, Any]] = {}
 
+# Role definitions
+ROLES = {
+    "Koruptor": {
+        "description": "🕵️ Koruptor - Tujuan Anda adalah menghindari penangkapan dan mengumpulkan kekayaan ilegal",
+        "night_action": "memilih target untuk disuap atau diancam",
+        "team": "koruptor",
+        "priority": 1
+    },
+    "KPK": {
+        "description": "👮 Penyidik KPK - Tujuan Anda adalah menangkap semua koruptor",
+        "night_action": "menyidik satu pemain untuk mengetahui perannya",
+        "team": "penegak_hukum",
+        "priority": 2
+    },
+    "Jaksa": {
+        "description": "⚖️ Jaksa - Tujuan Anda adalah mendakwa koruptor yang tertangkap",
+        "night_action": "melindungi satu pemain dari penyidikan koruptor",
+        "team": "penegak_hukum", 
+        "priority": 3
+    },
+    "Polisi": {
+        "description": "👮 Polisi - Tujuan Anda adalah menjaga keamanan dan membantu penegakan hukum",
+        "night_action": "mengawasi satu pemain untuk melihat aktivitas mencurigakan",
+        "team": "penegak_hukum",
+        "priority": 4
+    },
+    "Masyarakat": {
+        "description": "👨 Masyarakat - Tujuan Anda adalah membantu membersihkan negara dari korupsi",
+        "night_action": "tidak memiliki aksi malam",
+        "team": "masyarakat",
+        "priority": 5
+    },
+    "Whistleblower": {
+        "description": "📢 Whistleblower - Tujuan Anda adalah membongkar kasus korupsi tanpa terdeteksi",
+        "night_action": "mengungkap informasi tentang satu pemain",
+        "team": "masyarakat",
+        "priority": 6
+    }
+}
+
+# Role distribution based on player count
+ROLE_DISTRIBUTION = {
+    5: {"Koruptor": 1, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 1},
+    6: {"Koruptor": 2, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 1},
+    7: {"Koruptor": 2, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 1, "Whistleblower": 1},
+    8: {"Koruptor": 2, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 2, "Whistleblower": 1},
+    9: {"Koruptor": 3, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 2, "Whistleblower": 1},
+    10: {"Koruptor": 3, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 2, "Whistleblower": 2}
+}
+
 
 def encode_chat_id(combined_value: str) -> str:
     """Encode untuk URL yang aman"""
-    # Gunakan urlsafe_b64encode dan hilangkan padding
     encoded = base64.urlsafe_b64encode(combined_value.encode()).decode().rstrip("=")
     return encoded
 
 def decode_chat_id(encoded: str) -> str:
     """Decode dari URL-safe base64"""
-    # Tambahkan padding jika diperlukan
     padding = len(encoded) % 4
     if padding:
         encoded += "=" * (4 - padding)
     
     try:
         decoded = base64.urlsafe_b64decode(encoded.encode()).decode()
-        
-        # Validasi format dasar
         if '_' not in decoded or len(decoded.split('_')) != 2:
             raise ValueError("Format decoded tidak valid")
-            
         return decoded
     except Exception as e:
         logger.error(f"Decode error: {str(e)}")
         raise ValueError("Token tidak valid") from e
 
-    
-    
 def cancel_all_jobs(chat_id: int, job_queue: JobQueue):
     """Batalkan semua job yang terkait dengan chat_id tertentu"""
     jobs = job_queue.get_jobs_by_name(str(chat_id))
@@ -174,19 +112,20 @@ def get_game(chat_id: int) -> Dict[str, Any]:
     if chat_id not in games:
         games[chat_id] = {
             'pemain': [],
-            'spy': [],
-            'warga': [],
-            'kata_rahasia': None,
+            'roles': {},
             'sedang_berlangsung': False,
             'fase': None,
-            'deskripsi_pemain': {},
+            'malam_actions': {},
             'suara': {},
-            'tereliminasi': [],
+            'tertangka': [],
             'skor': {},
             'join_started': False,
             'pending_messages': [],
             'join_message_id': None,
-            'jobs': []
+            'jobs': [],
+            'hari_ke': 0,
+            'pemain_mati': [],
+            'night_results': {}
         }
     return games[chat_id]
 
@@ -207,37 +146,11 @@ def cleanup_jobs(context: CallbackContext, chat_id: int):
     
     game['jobs'] = []
 
-def pilih_kata():
-    # Choose a random category
-    kategori = random.choice(list(KATA.keys()))
-    
-    # Select a random word group from that category
-    kelompok_kata = random.choice(KATA[kategori])
-    
-    # Make a copy of the word group to work with
-    kata_kandidat = kelompok_kata.copy()
-    
-    # Randomly select the civilian word and remove it from candidates
-    kata_warga = random.choice(kata_kandidat)
-    kata_kandidat.remove(kata_warga)
-    
-    # Select spy word from remaining words (ensuring it's different)
-    kata_spy = random.choice(kata_kandidat) if kata_kandidat else kata_warga  # fallback
-    
-    return {
-        'kategori': kategori,
-        'warga': kata_warga, 
-        'spy': kata_spy,
-        'kelompok_kata': kelompok_kata  # Optional: for reference
-    }
-
-
 def reset_game(chat_id: int, context: CallbackContext = None):
     """Reset game state and cancel all jobs safely"""
     game = get_game(chat_id)
     
     try:
-        # Cancel all active jobs
         if context and 'jobs' in game:
             for job_info in game['jobs']:
                 try:
@@ -247,7 +160,6 @@ def reset_game(chat_id: int, context: CallbackContext = None):
                 except Exception as e:
                     logger.error(f"Failed to remove job {job_info['id']}: {e}")
 
-        # Clear all pending messages
         for msg_id in game.get('pending_messages', []):
             try:
                 context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
@@ -260,7 +172,6 @@ def reset_game(chat_id: int, context: CallbackContext = None):
         if chat_id in games:
             del games[chat_id]
 
-        
 def safe_send_message(context, *args, **kwargs):
     """Safely send message with retry logic"""
     max_retries = 3
@@ -273,7 +184,6 @@ def safe_send_message(context, *args, **kwargs):
             sleep_time = (2 ** attempt) + random.random()
             time.sleep(sleep_time)
 
-        
 def join_time_up(context: CallbackContext):
     """Handler ketika waktu gabung habis"""
     chat_id = context.job.context['chat_id']
@@ -282,7 +192,6 @@ def join_time_up(context: CallbackContext):
     if not game['join_started']:
         return
 
-    # Cleanup messages
     for msg_id in game['pending_messages']:
         try:
             context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
@@ -293,16 +202,13 @@ def join_time_up(context: CallbackContext):
     game['join_message_id'] = None
     game['join_started'] = False
 
-    # Start game if enough players
-    if len(game['pemain']) >= 3:
+    if len(game['pemain']) >= 5:
         context.bot.send_message(
             chat_id=chat_id,
-            text=f"✅ Pendaftaran ditutup dengan {len(game['pemain'])} pemain!\n"
-                 "⏳ Memulai permainan...",
+            text=f"✅ Pendaftaran ditutup dengan {len(game['pemain'])} pemain!\n⏳ Memulai permainan...",
             parse_mode='Markdown'
         )
         
-        # Start game with short delay
         start_job = context.job_queue.run_once(
             lambda ctx: auto_start_game(ctx),
             2,
@@ -311,9 +217,7 @@ def join_time_up(context: CallbackContext):
         )
         game['jobs'].append(start_job)
     else:
-        
         reset_game(chat_id)
-
 
 def join_warning(context: CallbackContext):
     """Peringatan waktu gabung hampir habis"""
@@ -333,24 +237,21 @@ def join_warning(context: CallbackContext):
     except Exception as e:
         logger.error(f"Gagal kirim peringatan: {e}")
 
-
 def auto_start_game(context: CallbackContext):
     """Automatically start game after join timer ends"""
     try:
-        # Extract chat_id from job context
         chat_id = context.job.context['chat_id']
         game = get_game(chat_id)
         
-        if len(game['pemain']) < 3:
+        if len(game['pemain']) < 5:
             context.bot.send_message(
                 chat_id=chat_id,
-                text="❌ Gagal memulai - minimal 3 pemain diperlukan!",
+                text="❌ Gagal memulai - minimal 5 pemain diperlukan!",
                 parse_mode='Markdown'
             )
             reset_game(chat_id)
             return
 
-        # Create simulated Update object (fake_update)
         class MockChat:
             def __init__(self, chat_id):
                 self.id = chat_id
@@ -373,7 +274,6 @@ def auto_start_game(context: CallbackContext):
             message=MockMessage(chat_id)
         )
 
-        # Call main game function with simulated update
         mulai_permainan(fake_update, context)
 
     except Exception as e:
@@ -384,24 +284,18 @@ def auto_start_game(context: CallbackContext):
         )
         reset_game(chat_id)
 
-
-
 def start(update: Update, context: CallbackContext):
-    # Jika berasal dari inline join
     if context.args and context.args[0].startswith('join_'):
         join_request(update, context)
         return
     
-    # Ambil nama pengguna yang menekan start
     user_name = update.effective_user.first_name or update.effective_user.full_name
 
-    # Teks pesan dengan nama pengguna
     start_text = (
-        f"Hai {user_name}! Saya host-bot game tebak spy di grup Telegram. "
-        "Tambahkan saya ke grup untuk mulai bermain game tebak spy yang menyenangkan!"
+        f"Hai {user_name}! Saya host-bot Game Koruptor di grup Telegram. "
+        "Tambahkan saya ke grup untuk mulai bermain game koruptor yang seru!"
     )
 
-    # Membuat inline keyboard dengan layout 2 atas 1 bawah
     keyboard = [
         [
             InlineKeyboardButton("Support Grup", url="https://t.me/DutabotSupport"),
@@ -421,15 +315,12 @@ def start(update: Update, context: CallbackContext):
         reply_markup=reply_markup
     )
 
-
 def gabung(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Silakan gabung di grup yang sedang bermain!")
         return
 
-    if update.effective_chat.id not in ALLOWED_GROUP_IDS:
-        update.message.reply_text("❌ Bot sedang dalam pengembangan dan hanya bisa digunakan di grup tertentu!")
-        return    
+ 
 
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
@@ -446,14 +337,11 @@ def gabung(update: Update, context: CallbackContext):
             'jobs': []
         })
 
-    # Generate join token with encoded chat_id
-    
     timestamp = str(int(time.time()))
     chat_id_str = str(chat_id)
     combined = f"{timestamp}_{chat_id_str}"
     tokenku = encode_chat_id(combined)
     
-    # URL encode token untuk jaga-jaga
     safe_token = urllib.parse.quote(tokenku)
     
     keyboard = [[InlineKeyboardButton(
@@ -463,9 +351,9 @@ def gabung(update: Update, context: CallbackContext):
     
     if not game.get('join_message_id'):
         msg = update.message.reply_text(
-            f"🎮 *PERMAINAN BARU DI GRUP INI!*\n"
+            f"🎮 *GAME KORUPTOR DI GRUP INI!*\n"
             "⏱️ Waktu bergabung: 50 detik\n"
-            "👥 Pemain: 0/8\n\n"
+            "👥 Pemain: 0/10\n\n"
             "Klik tombol di bawah untuk bergabung:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
@@ -477,9 +365,9 @@ def gabung(update: Update, context: CallbackContext):
             context.bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=game['join_message_id'],
-                text=f"🎮 *PERMAINAN BARU DI GRUP INI!*\n"
+                text=f"🎮 *GAME KORUPTOR DI GRUP INI!*\n"
                      "⏱️ Waktu bergabung: 50 detik\n"
-                     f"👥 Pemain: {len(game['pemain'])}/8\n\n"
+                     f"👥 Pemain: {len(game['pemain'])}/10\n\n"
                      "Klik tombol di bawah untuk bergabung:",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
@@ -487,12 +375,10 @@ def gabung(update: Update, context: CallbackContext):
         except Exception as e:
             logger.error(f"Gagal update pesan gabung: {e}")
 
-    # Cancel existing timers
     for job in game.get('jobs', []):
         job.schedule_removal()
     game['jobs'] = []
 
-    # Schedule new timers
     timer_job = context.job_queue.run_once(
         join_time_up,
         50,
@@ -509,10 +395,9 @@ def gabung(update: Update, context: CallbackContext):
     )
     game['jobs'].append(warning_job)
 
-     # Schedule auto start game
     start_job = context.job_queue.run_once(
         auto_start_game,
-        52,  # 2 detik setelah timer gabung selesai
+        52,
         context={'chat_id': chat_id},
         name=f"game_start_{chat_id}"
     )
@@ -527,19 +412,14 @@ def join_request(update: Update, context: CallbackContext):
         if not context.args or not context.args[0].startswith('join_'):
             raise ValueError("Format token tidak valid")
             
-        # Ambil bagian encoded setelah join_
         encoded_token = context.args[0][5:]
-        
-        # Decode and parse token components
         decoded_value = decode_chat_id(encoded_token)
         timestamp_str, chat_id_str = decoded_value.split('_')
         
-        # Validate types
         timestamp = int(timestamp_str)
         chat_id = int(chat_id_str)
   
-        # Validate token time (15 minute window)
-        if abs(time.time() - timestamp) > 900:
+        if abs(time.time() - timestamp) > 600:
             update.message.reply_text("⌛ Link bergabung sudah kadaluarsa!")
             return
 
@@ -566,8 +446,8 @@ def join_request(update: Update, context: CallbackContext):
         update.message.reply_text("😊 Kamu sudah terdaftar!")
         return
 
-    if len(game['pemain']) >= 8:
-        update.message.reply_text("😞 Pemain sudah penuh (8/8)!")
+    if len(game['pemain']) >= 10:
+        update.message.reply_text("😞 Pemain sudah penuh (10/10)!")
         return
 
     game['pemain'].append({'id': user_id, 'nama': username})
@@ -577,7 +457,7 @@ def join_request(update: Update, context: CallbackContext):
         
     update.message.reply_text(
         f"Kamu berhasil bergabung di *{group_name}*\n"
-        f"Sekarang ada *{len(game['pemain'])}/8 pemain.*",
+        f"Sekarang ada *{len(game['pemain'])}/10 pemain.*",
         parse_mode='Markdown'
     )
     
@@ -591,27 +471,18 @@ def join_request(update: Update, context: CallbackContext):
     except Exception as e:
         logger.error(f"Gagal kirim notifikasi grup: {e}")
         
-    # Edit pesan join request
     try:
-    	
-    	timestamp_new = str(int(time.time()))
-        chat_id_str_new = str(chat_id)
-        combined_new = f"{timestamp_new}_{chat_id_str_new}"
-        tokenku = encode_chat_id(combined_new)
-        safe_token = urllib.parse.quote(tokenku)
-        
-        
         context.bot.edit_message_text(
-            chat_id=chat_id,
+            chat_id=str(chat_id),
             message_id=game['join_message_id'],
-            text=f"🎮 *PERMAINAN BARU DI GRUP INI!*\n"
+            text=f"🎮 *GAME KORUPTOR DI GRUP INI!*\n"
                  "⏱️ Waktu bergabung: 50 detik\n"
-                 f"👥 Pemain: {len(game['pemain'])}/8\n\n"
+                 f"👥 Pemain: {len(game['pemain'])}/10\n\n"
                  "Klik tombol di bawah untuk bergabung:",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton(
                     "🎮 Gabung Sekarang",
-                    url=f"https://t.me/{context.bot.username}?start=join_{safe_token}"
+                    url=f"https://t.me/{context.bot.username}?start=join_{int(time.time())}_{encode_chat_id(chat_id)}"
                 )
             ]]),
             parse_mode='Markdown'
@@ -619,15 +490,22 @@ def join_request(update: Update, context: CallbackContext):
     except Exception as e:
         logger.error(f"Gagal update pesan gabung: {e}")
 
-    # Cek jika pemain sudah penuh
     try:      
-        if len(game['pemain']) == 8:
+        if len(game['pemain']) == 10:
             cancel_all_jobs(chat_id, context.job_queue)
             mulai_permainan(update, context)
     except Exception as e:
         logger.error(f"Gagal mulai Game: {e}")
 
-          
+def distribusi_peran(jumlah_pemain: int) -> Dict[str, int]:
+    """Distribusikan peran berdasarkan jumlah pemain"""
+    if jumlah_pemain < 5:
+        return {"Koruptor": 1, "KPK": 1, "Jaksa": 1, "Polisi": 1, "Masyarakat": 1}
+    elif jumlah_pemain > 10:
+        return {"Koruptor": 3, "KPK": 2, "Jaksa": 1, "Polisi": 1, "Masyarakat": jumlah_pemain - 7, "Whistleblower": 1}
+    else:
+        return ROLE_DISTRIBUTION[jumlah_pemain]
+
 def mulai_permainan(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Hanya bisa dilakukan di grup!")
@@ -636,76 +514,55 @@ def mulai_permainan(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
 
-    # Batalkan semua job yang masih berjalan
     cancel_all_jobs(chat_id, context.job_queue)
     
     if game['sedang_berlangsung']:
-        #update.message.reply_text("🔄 Permainan masih berjalan!")
         return
 
     jumlah_pemain = len(game['pemain'])
     
-    if jumlah_pemain < 3:
+    if jumlah_pemain < 5:
         update.message.reply_text(
-            "❌ Minimal 3 pemain untuk memulai!\n"
-            f"Pemain saat ini: {jumlah_pemain}/3"
+            "❌ Minimal 5 pemain untuk memulai!\n"
+            f"Pemain saat ini: {jumlah_pemain}/5"
         )
         return
     
-    # Reset game state
     game.update({
-        'spy': [],
-        'warga': [],
-        'kata_rahasia': None,
+        'roles': {},
         'sedang_berlangsung': True,
-        'fase': None,
-        'deskripsi_pemain': {},
+        'fase': 'malam',
+        'malam_actions': {},
         'suara': {},
-        'tereliminasi': [],
+        'tertangka': [],
         'skor': {},
-        'message_id': None,
-        'round': 1 
+        'hari_ke': 1,
+        'pemain_mati': [],
+        'night_results': {}
     })
 
-    # Determine number of spies
-    num_spies = 1 if jumlah_pemain <= 6 else 2
+    # Distribusi peran
+    distribusi = distribusi_peran(jumlah_pemain)
+    semua_peran = []
     
-    # Select spies randomly
-    all_players = game['pemain'].copy()
-    random.shuffle(all_players)
-    game['spy'] = all_players[:num_spies]
-    game['warga'] = all_players[num_spies:]
-
-    # Select secret word
- 
-    kata_rahasia = pilih_kata()
-    game['kata_rahasia'] = {
-        'warga': kata_rahasia['warga'],
-        'spy': kata_rahasia['spy'],
-        'kategori': kata_rahasia['kategori'],
-        'kelompok_kata': kata_rahasia['kelompok_kata']  # Optional: for debugging
-    }
-
-
-    # Send roles to players privately
-    for pemain in game['pemain']:
+    for peran, jumlah in distribusi.items():
+        semua_peran.extend([peran] * jumlah)
+    
+    random.shuffle(semua_peran)
+    
+    # Berikan peran ke pemain
+    for i, pemain in enumerate(game['pemain']):
+        peran = semua_peran[i]
+        game['roles'][pemain['id']] = peran
+        
+        # Kirim peran ke pemain
         try:
-            if pemain in game['spy']:
-                role_text = (
-                    f"*Kosa-katamu adalah:*\n\n"                    
-                    f"*{game['kata_rahasia']['spy']}*\n\n"
-                    "Silakan deskripsikan kata ini tanpa menyebutkan kata langsung!"
-                )
-            else:
-                role_text = (
-                    f"*Kosa-katamu adalah:*\n\n"
-                    f"*{game['kata_rahasia']['warga']}*\n\n"
-                    "Silakan deskripsikan kata ini tanpa menyebutkan kata langsung!"
-                )
-            
             context.bot.send_message(
                 chat_id=pemain['id'],
-                text=role_text,
+                text=f"🎭 *PERAN ANDA DALAM GAME KORUPTOR*\n\n"
+                     f"{ROLES[peran]['description']}\n\n"
+                     f"*Aksi Malam:* {ROLES[peran]['night_action']}\n\n"
+                     "Jaga kerahasiaan peran Anda!",
                 parse_mode='Markdown'
             )
         except Exception as e:
@@ -717,114 +574,310 @@ def mulai_permainan(update: Update, context: CallbackContext):
             reset_game(chat_id)
             return
 
-    # Info to group
-    msg = update.message.reply_text(
-        f"*Putaran deskripsi ke-{game['round']} dimulai, silakan mulai deskripsi pada waktu yang sama.*\n\n"
-        "*Peran sudah dibagikan!*\n"
-        f"Spy: {len(game['spy'])} orang | Warga: {len(game['warga'])} orang\n\n"
-        "⏳ *Fase Deskripsi dimulai!*\n"
-        "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 40 detik).",
+    # Mulai malam pertama
+    mulai_malam(context, chat_id)
+
+def mulai_malam(context: CallbackContext, chat_id: int):
+    """Memulai fase malam"""
+    game = get_game(chat_id)
+    game['fase'] = 'malam'
+    game['malam_actions'] = {}
+    game['night_results'] = {}
+    
+    # Kirim pesan ke grup
+    context.bot.send_message(
+        chat_id=chat_id,
+        text=f"🌙 *MALAM KE-{game['hari_ke']}*\n\n"
+             "Semua pemain tertidur...\n"
+             "Pemain dengan aksi khusus silakan melakukan aksinya via chat pribadi dengan bot.",
         parse_mode='Markdown'
     )
-
-    game['fase'] = 'deskripsi'
-    game['message_id'] = msg.message_id
     
-    # Description phase timer
-    context.job_queue.run_once(
-        lambda ctx: akhir_deskripsi(ctx, chat_id),
-        40,
-        context=chat_id,
-        name=f"deskripsi_{chat_id}"
-    )
-
-
-def akhir_deskripsi(context: CallbackContext, chat_id):
-    game = get_game(chat_id)
-    
-    if not game['sedang_berlangsung'] or game['fase'] != 'deskripsi':
-        return
-
-    # Check for missing descriptions
-    belum_kirim = []
+    # Beri waktu untuk aksi malam
     for pemain in game['pemain']:
-        if pemain['id'] not in game['deskripsi_pemain'] and pemain not in game['tereliminasi']:
-            belum_kirim.append(pemain['nama'])
-            game['deskripsi_pemain'][pemain['id']] = "❌ [Tidak memberikan deskripsi]"
+        if pemain['id'] in game['pemain_mati']:
+            continue
             
+        peran = game['roles'][pemain['id']]
+        
+        if peran in ["Koruptor", "KPK", "Jaksa", "Polisi", "Whistleblower"]:
             try:
-                context.bot.send_message(
-                    chat_id=pemain['id'],
-                    text="⏰ *Oops!* Waktu deskripsi habis!\n"
-      	                   "*➖ Tetap lanjutkan permainan! ➖*",
-     	           parse_mode='Markdown'
-                )
+                if peran == "Koruptor":
+                    # Koruptor bisa memilih target untuk disuap
+                    keyboard = []
+                    for target in game['pemain']:
+                        if target['id'] != pemain['id'] and target['id'] not in game['pemain_mati']:
+                            keyboard.append([InlineKeyboardButton(
+                                target['nama'], 
+                                callback_data=f"night_koruptor_{target['id']}"
+                            )])
+                    
+                    context.bot.send_message(
+                        chat_id=pemain['id'],
+                        text="🌙 *Aksi Malam - Koruptor*\n\n"
+                             "Pilih target untuk disuap atau ancam:\n"
+                             "Target yang disuap tidak bisa divoting besok.",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                
+                elif peran == "KPK":
+                    # KPK bisa menyelidiki peran pemain
+                    keyboard = []
+                    for target in game['pemain']:
+                        if target['id'] != pemain['id'] and target['id'] not in game['pemain_mati']:
+                            keyboard.append([InlineKeyboardButton(
+                                target['nama'], 
+                                callback_data=f"night_kpk_{target['id']}"
+                            )])
+                    
+                    context.bot.send_message(
+                        chat_id=pemain['id'],
+                        text="🌙 *Aksi Malam - KPK*\n\n"
+                             "Pilih target untuk diselidiki:\n"
+                             "Anda akan mengetahui peran target.",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                
+                elif peran == "Jaksa":
+                    # Jaksa bisa melindungi pemain
+                    keyboard = []
+                    for target in game['pemain']:
+                        if target['id'] not in game['pemain_mati']:
+                            keyboard.append([InlineKeyboardButton(
+                                target['nama'], 
+                                callback_data=f"night_jaksa_{target['id']}"
+                            )])
+                    
+                    context.bot.send_message(
+                        chat_id=pemain['id'],
+                        text="🌙 *Aksi Malam - Jaksa*\n\n"
+                             "Pilih target untuk dilindungi:\n"
+                             "Target tidak bisa diselidiki malam ini.",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                
+                elif peran == "Polisi":
+                    # Polisi bisa mengawasi pemain
+                    keyboard = []
+                    for target in game['pemain']:
+                        if target['id'] != pemain['id'] and target['id'] not in game['pemain_mati']:
+                            keyboard.append([InlineKeyboardButton(
+                                target['nama'], 
+                                callback_data=f"night_polisi_{target['id']}"
+                            )])
+                    
+                    context.bot.send_message(
+                        chat_id=pemain['id'],
+                        text="🌙 *Aksi Malam - Polisi*\n\n"
+                             "Pilih target untuk diawasi:\n"
+                             "Anda akan melihat jika target melakukan aksi mencurigakan.",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                
+                elif peran == "Whistleblower":
+                    # Whistleblower bisa mengungkap informasi
+                    keyboard = []
+                    for target in game['pemain']:
+                        if target['id'] != pemain['id'] and target['id'] not in game['pemain_mati']:
+                            keyboard.append([InlineKeyboardButton(
+                                target['nama'], 
+                                callback_data=f"night_whistleblower_{target['id']}"
+                            )])
+                    
+                    context.bot.send_message(
+                        chat_id=pemain['id'],
+                        text="🌙 *Aksi Malam - Whistleblower*\n\n"
+                             "Pilih target untuk diungkap informasinya:\n"
+                             "Anda akan mengetahui tim target (koruptor/penegak hukum/masyarakat).",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
                 
             except Exception as e:
-                logger.error(f"Gagal mengirim notifikasi ke {pemain['nama']}: {e}")
-
+                logger.error(f"Gagal kirim aksi malam ke {pemain['nama']}: {e}")
     
-    hasil_deskripsi = []
-    for pemain in game['pemain']:
-        if pemain['id'] in game['deskripsi_pemain']:
-            hasil_deskripsi.append(
-                f"▪️ {pemain['nama']}: {game['deskripsi_pemain'][pemain['id']]}"
-            )
-
-    # Show descriptions to group
-    try:
-        if game['message_id']:            
-            context.bot.send_message(
-                chat_id=chat_id,
-                text="*Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
-                parse_mode='Markdown'
-            )
-        else:
-            game['message_id'] = context.bot.send_message(
-                chat_id=chat_id,
-                text="*Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
-                parse_mode='Markdown'
-            ).message_id
-    except Exception as e:
-        logger.error(f"Gagal edit/send pesan deskripsi: {e}")
-        game['message_id'] = None
-
-    # Start voting phase
-    game['fase'] = 'voting'
-    pemain_aktif = [p for p in game['pemain'] if p not in game['tereliminasi']]
-    
-    if len(pemain_aktif) < 2:
-        cek_pemenang(context, chat_id)
-        return
-    
-    time.sleep(5)  # Delay 5 detik
-    
-    # Create vertical voting buttons
-    keyboard = []
-    for p in pemain_aktif:
-        btn_text = f"{p['nama']} (0)"
-        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"vote_{p['id']}")])
-
-    try:
-        if game['message_id']:
-            msg = context.bot.send_message(
-                chat_id=chat_id,
-                text="🗳️ *Fase Voting!*\nPilih siapa yang menurutmu Spy!\nWaktu: 40 detik.",
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
-            )
-            game['message_id'] = msg.message_id
-    except Exception as e:
-        logger.error(f"Gagal kirim pesan voting: {e}")
-        return
-
-    # Voting timer
+    # Timer aksi malam
     context.job_queue.run_once(
-        lambda ctx: akhir_voting(ctx, chat_id),
-        40,
+        lambda ctx: akhir_malam(ctx, chat_id),
+        60,
         context=chat_id,
-        name=f"voting_{chat_id}"
+        name=f"malam_{chat_id}"
     )
+
+def handle_night_action(update: Update, context: CallbackContext):
+    """Handle aksi malam dari pemain"""
+    query = update.callback_query
+    query.answer()
+    
+    chat_id = query.message.chat.id
+    game = get_game(chat_id)
+    
+    if game['fase'] != 'malam':
+        query.edit_message_text("❌ Waktu aksi malam sudah habis!")
+        return
+    
+    user_id = query.from_user.id
+    data_parts = query.data.split('_')
+    
+    if len(data_parts) < 3:
+        return
+    
+    action_type = data_parts[1]
+    target_id = int(data_parts[2])
+    
+    # Simpan aksi pemain
+    if user_id not in game['malam_actions']:
+        game['malam_actions'][user_id] = []
+    
+    game['malam_actions'][user_id].append({
+        'type': action_type,
+        'target_id': target_id,
+        'waktu': time.time()
+    })
+    
+    # Konfirmasi ke pemain
+    target_nama = next((p['nama'] for p in game['pemain'] if p['id'] == target_id), "Unknown")
+    query.edit_message_text(f"✅ Aksi {action_type} terhadap {target_nama} tercatat!")
+
+def akhir_malam(context: CallbackContext, chat_id: int):
+    """Proses hasil aksi malam"""
+    game = get_game(chat_id)
+    
+    if game['fase'] != 'malam':
+        return
+    
+    # Proses semua aksi malam berdasarkan priority
+    actions_by_priority = []
+    
+    for user_id, actions in game['malam_actions'].items():
+        for action in actions:
+            peran = game['roles'][user_id]
+            priority = ROLES[peran]['priority']
+            actions_by_priority.append((priority, user_id, action))
+    
+    # Urutkan berdasarkan priority
+    actions_by_priority.sort(key=lambda x: x[0])
+    
+    # Proses aksi
+    for priority, user_id, action in actions_by_priority:
+        peran = game['roles'][user_id]
+        target_id = action['target_id']
+        
+        if peran == "KPK" and target_id not in game['pemain_mati']:
+            # KPK menyelidiki peran target
+            target_peran = game['roles'][target_id]
+            try:
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"🔍 Hasil penyelidikan: {target_peran}",
+                    parse_mode='Markdown'
+                )
+                game['night_results'][user_id] = f"Hasil penyelidikan: {target_peran}"
+            except Exception as e:
+                logger.error(f"Gagal kirim hasil penyelidikan: {e}")
+        
+        elif peran == "Jaksa" and target_id not in game['pemain_mati']:
+            # Jaksa melindungi target dari penyelidikan
+            game['night_results'][target_id] = "Dilindungi oleh Jaksa"
+        
+        elif peran == "Polisi" and target_id not in game['pemain_mati']:
+            # Polisi mengawasi target
+            if target_id in game['malam_actions']:
+                target_actions = game['malam_actions'][target_id]
+                if any(a['type'] in ['koruptor', 'whistleblower'] for a in target_actions):
+                    try:
+                        context.bot.send_message(
+                            chat_id=user_id,
+                            text="👮 Target melakukan aksi mencurigakan!",
+                            parse_mode='Markdown'
+                        )
+                        game['night_results'][user_id] = "Target melakukan aksi mencurigakan"
+                    except Exception as e:
+                        logger.error(f"Gagal kirim hasil pengawasan: {e}")
+        
+        elif peran == "Whistleblower" and target_id not in game['pemain_mati']:
+            # Whistleblower mengungkap tim target
+            target_peran = game['roles'][target_id]
+            target_team = ROLES[target_peran]['team']
+            try:
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"📢 Target berada di tim: {target_team}",
+                    parse_mode='Markdown'
+                )
+                game['night_results'][user_id] = f"Target di tim: {target_team}"
+            except Exception as e:
+                logger.error(f"Gagal kirim hasil ungkap: {e}")
+        
+        elif peran == "Koruptor" and target_id not in game['pemain_mati']:
+            # Koruptor menyuap target
+            game['night_results'][target_id] = "Disuap oleh Koruptor (tidak bisa divoting besok)"
+    
+    # Mulai fase siang
+    mulai_siang(context, chat_id)
+
+def mulai_siang(context: CallbackContext, chat_id: int):
+    """Memulai fase siang"""
+    game = get_game(chat_id)
+    game['fase'] = 'siang'
+    
+    # Kirim hasil malam ke grup
+    hasil_text = "☀️ *SIANG HARI KE-{}*\n\n".format(game['hari_ke'])
+    
+    # Tambahkan info untuk pemain yang disuap
+    for target_id, result in game['night_results'].items():
+        if "Disuap oleh Koruptor" in result:
+            target_nama = next((p['nama'] for p in game['pemain'] if p['id'] == target_id), "Unknown")
+            hasil_text += f"⚠️ {target_nama} {result}\n"
+    
+    hasil_text += "\nDiskusikan dan pilih siapa yang akan ditangkap!"
+    
+    context.bot.send_message(
+        chat_id=chat_id,
+        text=hasil_text,
+        parse_mode='Markdown'
+    )
+    
+    # Buat tombol voting
+    keyboard = []
+    for pemain in game['pemain']:
+        if pemain['id'] not in game['pemain_mati']:
+            # Cek jika pemain disuap koruptor
+            if pemain['id'] in game['night_results'] and "Disuap oleh Koruptor" in game['night_results'][pemain['id']]:
+                button_text = f"{pemain['nama']} (Tidak bisa divoting)"
+            else:
+                button_text = f"{pemain['nama']} (0 suara)"
+                keyboard.append([InlineKeyboardButton(button_text, callback_data=f"vote_{pemain['id']}")])
+    
+    if keyboard:  # Hanya jika ada yang bisa divoting
+        vote_msg = context.bot.send_message(
+            chat_id=chat_id,
+            text="🗳️ *Pemungutan Suara*\nPilih siapa yang akan ditangkap:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
+        game['message_id'] = vote_msg.message_id
+        
+        # Timer voting
+        context.job_queue.run_once(
+            lambda ctx: akhir_voting(ctx, chat_id),
+            120,
+            context=chat_id,
+            name=f"voting_{chat_id}"
+        )
+    else:
+        # Tidak ada yang bisa divoting, lanjut ke malam berikutnya
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ Tidak ada yang bisa divoting hari ini! Lanjut ke malam berikutnya...",
+            parse_mode='Markdown'
+        )
+        game['hari_ke'] += 1
+        mulai_malam(context, chat_id)
 
 
 def handle_vote(update: Update, context: CallbackContext):
@@ -834,347 +887,242 @@ def handle_vote(update: Update, context: CallbackContext):
         chat_id = query.message.chat.id
         game = get_game(chat_id)
         
-        is_active_player = any(
-            p['id'] == voter_id 
-            for p in game['pemain'] 
-            if p not in game['tereliminasi']
-        )
+        # Cek apakah pemain masih hidup dan boleh voting
+        if voter_id in game['pemain_mati']:
+            query.answer("❌ Kamu sudah mati dan tidak bisa voting!", show_alert=True)
+            return
+            
+        if game['fase'] != 'siang':
+            query.answer("❌ Bukan waktu voting!", show_alert=True)
+            return
+
+        # Parse data callback
+        _, target_id_str = query.data.split('_')
+        target_id = int(target_id_str)
         
-        if not is_active_player:
-            query.answer(
-                text="❌ Hanya pemain yang sedang bermain boleh voting!",
-                show_alert=True,
-                cache_time=10
-            )
+        # Cek apakah target masih hidup dan bisa divoting
+        if target_id in game['pemain_mati']:
+            query.answer("❌ Target sudah mati!", show_alert=True)
+            return
+            
+        # Cek apakah target disuap koruptor
+        if target_id in game['night_results'] and "Disuap oleh Koruptor" in game['night_results'][target_id]:
+            query.answer("❌ Target tidak bisa divoting karena disuap koruptor!", show_alert=True)
             return
 
-
-        # [1. Validasi State Game - TIDAK DIUBAH]
-        if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
-            query.answer(text="❌ Waktu voting sudah habis!", show_alert=False)
-            return
-
-        # [2. Cek Pemain Tereliminasi - TIDAK DIUBAH]
-        if any(voter_id == p['id'] for p in game.get('tereliminasi', [])):
-            query.answer(text="❌ Kamu sudah tereliminasi!", show_alert=False, cache_time=5)
-            return
-
-        # [3. Blokir Pemain Terlibat Seri - TIDAK DIUBAH]
-        if 'pemain_terlibat_seri' in game and voter_id in game['pemain_terlibat_seri']:
-            query.answer(text="⚠️ Kamu tidak boleh  melakukan vote!", show_alert=False)
-            return
-
-        # [4. Cek Sudah Vote - TIDAK DIUBAH]
-        if voter_id in game.get('suara', {}):
-            current_choice = game['suara'][voter_id].get('nama', 'unknown')
-            query.answer(text=f"⚠️ Kamu sudah memilih {current_choice}!", show_alert=False, cache_time=4)
-            return
-
-        # [5. Parse Callback - TIDAK DIUBAH]
-        try:
-            _, player_id_str = query.data.split('_')
-            player_id = int(player_id_str)
-        except (ValueError, AttributeError) as e:
-            logger.error(f"Invalid callback data: {query.data}")
-            query.answer(text="❌ Invalid vote data!", show_alert=False)
-            return
-
-        # [6. Cegah Vote Diri Sendiri - TIDAK DIUBAH]
-        if voter_id == player_id:
-            query.answer(text="❌ Tidak boleh memilih diri sendiri!", show_alert=False)
-            return
-
-        # [7. Cari Pemain Target - TIDAK DIUBAH]
-        terpilih = next(
-            (p for p in game.get('pemain', []) 
-             if p.get('id') == player_id and p not in game.get('tereliminasi', [])), 
-            None
-        )
-        
-        if not terpilih:
-            query.answer(text="❌ Pemain tidak valid!", show_alert=False, cache_time=3)
-            return
-
-        # [8. Rekam Vote - TIDAK DIUBAH]
-        game.setdefault('suara', {})[voter_id] = terpilih
-        
-        ##### [9. MODIFIKASI: Filter Pemain yang Ditampilkan] #####
-        # Daftar pemain aktif (belum tereliminasi)
-        active_players = [p for p in game['pemain'] if p not in game.get('tereliminasi', [])]
-        
-        # Jika sedang revote, filter hanya pemain yang seri
-        if 'pemain_terlibat_seri' in game:
-            active_players = [p for p in active_players if p['id'] in game['pemain_terlibat_seri']]
-        ##### END MODIFIKASI #####
-
-        # [10. Hitung Suara - DIUBAH untuk filter aktif_players]
-        vote_count = {p['id']: 0 for p in active_players}
-        for v in game.get('suara', {}).values():
-            if v and 'id' in v and v['id'] in vote_count:
-                vote_count[v['id']] += 1
-
-        # [11. Bangun Keyboard - DIUBAH untuk filter aktif_players]
-        keyboard = []
-        for p in active_players:  # Gunakan active_players bukan game['pemain']
-            count = vote_count.get(p['id'], 0)
-            btn_text = f"{p.get('nama', 'Unknown')} ({count})"
-            keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"vote_{p['id']}")])
-
-        # [12. Update Tampilan - TIDAK DIUBAH]
-        try:
-            query.edit_message_reply_markup(
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-            query.answer(text=f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=False)
-        except Exception as e:
-            logger.error(f"Error updating buttons: {e}")
-            query.answer(text="❌ Gagal memperbarui pilihan.", show_alert=False)
+        # Simpan vote
+        if voter_id not in game['suara']:
+            game['suara'][voter_id] = target_id
+            
+            # Update tombol voting
+            vote_count = {}
+            for voter, voted_id in game['suara'].items():
+                if voted_id not in vote_count:
+                    vote_count[voted_id] = 0
+                vote_count[voted_id] += 1
+            
+            # Buat keyboard baru dengan jumlah suara terbaru
+            keyboard = []
+            for pemain in game['pemain']:
+                if pemain['id'] not in game['pemain_mati']:
+                    if pemain['id'] in game['night_results'] and "Disuap oleh Koruptor" in game['night_results'][pemain['id']]:
+                        button_text = f"{pemain['nama']} (Tidak bisa divoting)"
+                    else:
+                        count = vote_count.get(pemain['id'], 0)
+                        button_text = f"{pemain['nama']} ({count} suara)"
+                        keyboard.append([InlineKeyboardButton(button_text, callback_data=f"vote_{pemain['id']}")])
+            
+            try:
+                query.edit_message_reply_markup(
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                query.answer(f"✅ Kamu memilih {next(p['nama'] for p in game['pemain'] if p['id'] == target_id)}!")
+            except Exception as e:
+                logger.error(f"Error updating buttons: {e}")
+                query.answer("❌ Gagal memperbarui pilihan.", show_alert=True)
+        else:
+            query.answer("❌ Kamu sudah voting!", show_alert=True)
 
     except Exception as e:
         logger.error(f"Error in handle_vote: {e}")
         try:
-            query.answer(text="❌ Terjadi kesalahan saat voting!", show_alert=False)
+            query.answer("❌ Terjadi kesalahan saat voting!", show_alert=True)
         except:
             pass
 
-
-
-#  ini buat voting
-
 def akhir_voting(context: CallbackContext, chat_id):
+    """Proses akhir voting dan tentukan hasil"""
     try:
         game = get_game(chat_id)
         
-        if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
+        if game['fase'] != 'siang':
             return
 
-        # 1. Hitung hasil voting
-        hasil_voting = {p['id']: {'nama': p['nama'], 'suara': 0, 'id': p['id']} 
-                       for p in game['pemain'] if p not in game['tereliminasi']}
-        
-        for v in game['suara'].values():
-            if v and v['id'] in hasil_voting:
-                hasil_voting[v['id']]['suara'] += 1
+        # Hitung hasil voting
+        vote_count = {}
+        for voter_id, target_id in game['suara'].items():
+            if target_id not in vote_count:
+                vote_count[target_id] = 0
+            vote_count[target_id] += 1
 
-        # 2. Cek jika semua pemain seri (tidak ada yang memilih)
-        total_suara = sum(v['suara'] for v in hasil_voting.values())
-        if total_suara == 0:
-            context.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=game['message_id'],
-                text="🤷 *Tidak ada yang memilih!*\nTidak ada pemain yang tereliminasi.",
-                parse_mode='Markdown'
-            )
+        # Cari yang paling banyak divoting
+        if vote_count:
+            max_votes = max(vote_count.values())
+            candidates = [target_id for target_id, votes in vote_count.items() if votes == max_votes]
             
-            # Lanjutkan ke putaran berikutnya
-            game['round'] += 1
-            game['fase'] = 'deskripsi'
-            game['deskripsi_pemain'] = {}
-            game['suara'] = {}
-            
+            if len(candidates) > 1:
+                # Seri, voting ulang antara kandidat seri
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text="🤝 *Hasil seri!* Voting ulang antara kandidat:",
+                    parse_mode='Markdown'
+                )
+                
+                keyboard = []
+                for target_id in candidates:
+                    target_nama = next(p['nama'] for p in game['pemain'] if p['id'] == target_id)
+                    keyboard.append([InlineKeyboardButton(target_nama, callback_data=f"vote_{target_id}")])
+                
+                vote_msg = context.bot.send_message(
+                    chat_id=chat_id,
+                    text="Pilih salah satu yang akan ditangkap:",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                game['message_id'] = vote_msg.message_id
+                game['suara'] = {}  # Reset suara
+                
+                # Timer voting ulang
+                context.job_queue.run_once(
+                    lambda ctx: akhir_voting(ctx, chat_id),
+                    60,
+                    context=chat_id,
+                    name=f"revote_{chat_id}"
+                )
+                return
+            else:
+                # Ada pemenang voting
+                tertangkap_id = candidates[0]
+                tertangkap = next(p for p in game['pemain'] if p['id'] == tertangkap_id)
+                peran_tertangkap = game['roles'][tertangkap_id]
+                
+                # Tandai sebagai tertangkap
+                game['tertangka'].append(tertangkap)
+                game['pemain_mati'].append(tertangkap_id)
+                
+                # Kirim hasil ke grup
+                context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"⚖️ *{tertangkap['nama']} ditangkap!*\nPeran: {peran_tertangkap}",
+                    parse_mode='Markdown'
+                )
+                
+                # Cek kondisi kemenangan
+                cek_kondisi_kemenangan(context, chat_id)
+        else:
+            # Tidak ada yang voting, lanjut ke malam berikutnya
             context.bot.send_message(
                 chat_id=chat_id,
-                text=(
-                    f"*Putaran deskripsi ke-{game['round']} dimulai, silakan mulai deskripsi pada waktu yang sama.*\n\n"
-                    "*Peran sudah dibagikan!*\n"
-                    f"Spy: {len([s for s in game['spy'] if s not in game['tereliminasi']])} orang | "
-                    f"Warga: {len([w for w in game['warga'] if w not in game['tereliminasi']])} orang\n\n"
-                    "⏳ *Fase Deskripsi dimulai!*\n"
-                    "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 40 detik)."
-                ),
+                text="❌ Tidak ada yang voting! Lanjut ke malam berikutnya...",
                 parse_mode='Markdown'
             )
-            
-            # New description phase timer
-            context.job_queue.run_once(
-                lambda ctx: akhir_deskripsi(ctx, chat_id),
-                40,
-                context=chat_id,
-                name=f"deskripsi_{chat_id}"
-            )
-            return
-
-        ranking = sorted(hasil_voting.values(), key=lambda x: x['suara'], reverse=True)
-
-        # 3. Tampilkan hasil
-        hasil_text = "📊 *Hasil Voting:*\n" + "\n".join([f"• {p['nama']}: {p['suara']} suara" for p in ranking])
-        context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=game['message_id'],
-            text=hasil_text,
-            parse_mode='Markdown'
-        )
-
-        # 4. Handle hasil seri (jika ada suara tapi jumlah suara sama)
-        if len(ranking) > 1 and ranking[0]['suara'] == ranking[1]['suara']:
-            pemain_seri = [p for p in ranking if p['suara'] == ranking[0]['suara']]
-            nama_seri = ", ".join([p['nama'] for p in pemain_seri])
-            
-            # 4a. Simpan ID pemain yang seri (tidak boleh vote)
-            game['pemain_terlibat_seri'] = [p['id'] for p in pemain_seri]
-            
-            # 4b. Kirim notifikasi
-            context.bot.send_message(
-                chat_id=chat_id,
-                text=f"🤝 *Hasil seri!* ({nama_seri})\n"
-                     "🗳️ Voting ulang\n"
-                     f"⏱ Waktu: 30 detik",
-                parse_mode='Markdown'
-            )
-
-            # 4c. Siapkan voting ulang
-            keyboard = [[InlineKeyboardButton(p['nama'], callback_data=f"vote_{p['id']}")] for p in pemain_seri]
-            
-            vote_msg = context.bot.send_message(
-                chat_id=chat_id,
-                text="Pilih salah satu yang akan dieliminasi:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-            game['message_id'] = vote_msg.message_id
-            game['suara'] = {}  # Reset suara
-
-            # 4d. Timer voting ulang
-            context.job_queue.run_once(
-                lambda ctx: akhir_voting(ctx, chat_id),
-                30,
-                context=chat_id,
-                name=f"revote_{chat_id}"
-            )
-            return
-
-        # 5. Lanjutkan eliminasi jika tidak seri
-        tereliminasi = next((p for p in game['pemain'] 
-                           if p['id'] == ranking[0]['id'] and p not in game['tereliminasi']), None)
-        
-        if tereliminasi:
-            game['tereliminasi'].append(tereliminasi)
-            role = "🕵️ Spy" if tereliminasi in game['spy'] else "👨 Warga"
-            context.bot.send_message(
-                chat_id=chat_id,
-                text=f"*{tereliminasi['nama']} dipilih*, dia adalah {role}",
-                parse_mode='Markdown'
-            )
-
-        # 6. Cek pemenang
-        cek_pemenang(context, chat_id)
+            game['hari_ke'] += 1
+            mulai_malam(context, chat_id)
 
     except Exception as e:
         logger.error(f"Error in akhir_voting: {e}")
         context.bot.send_message(chat_id, "⚠️ Error processing voting")
 
-def cek_pemenang(context: CallbackContext, chat_id):
+def cek_kondisi_kemenangan(context: CallbackContext, chat_id):
+    """Cek apakah permainan sudah berakhir"""
     game = get_game(chat_id)
     
-    # Count remaining players and spies
-    pemain_aktif = [p for p in game['pemain'] if p not in game['tereliminasi']]
-    jumlah_pemain = len(pemain_aktif)
-    jumlah_spy = len([s for s in game['spy'] if s not in game['tereliminasi']])  # Only count alive spies
-
-    if jumlah_pemain == 0:
-        # Special case if all eliminated
-        teks = "🤷 *Permainan berakhir tanpa pemenang!*\nSemua pemain tereliminasi."
-    elif jumlah_spy >= (jumlah_pemain - jumlah_spy):  # Spies win
-        teks = f"* Permainan Berakhir!*\nTim pemenang: *Spy*\n\n"
-        teks += "*Pemenang:*\n"
+    # Hitung jumlah pemain yang masih hidup per tim
+    tim_koruptor = 0
+    tim_penegak_hukum = 0
+    tim_masyarakat = 0
+    
+    for pemain in game['pemain']:
+        if pemain['id'] not in game['pemain_mati']:
+            peran = game['roles'][pemain['id']]
+            tim = ROLES[peran]['team']
+            
+            if tim == 'koruptor':
+                tim_koruptor += 1
+            elif tim == 'penegak_hukum':
+                tim_penegak_hukum += 1
+            elif tim == 'masyarakat':
+                tim_masyarakat += 1
+    
+    # Kondisi kemenangan
+    if tim_koruptor == 0:
+        # Penegak hukum dan masyarakat menang
+        teks_kemenangan = "🎉 *PENEGAK HUKUM DAN MASYARAKAT MENANG!*\n\n"
+        teks_kemenangan += "Semua koruptor telah ditangkap!\n\n"
+        teks_kemenangan += "*Pemain yang masih hidup:*\n"
         
-        # First show winning spies
         for pemain in game['pemain']:
-            if pemain in game['spy'] and pemain not in game['tereliminasi']:
-                game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 20
-                teks += f"- {pemain['nama']} : 🕵️ Spy\n"
+            if pemain['id'] not in game['pemain_mati']:
+                peran = game['roles'][pemain['id']]
+                teks_kemenangan += f"- {pemain['nama']} ({peran})\n"
         
-        teks += "\n*Pemain lain:*\n"
-        # Then show other players
+        akhir_permainan(context, chat_id, teks_kemenangan)
+        
+    elif tim_koruptor >= (tim_penegak_hukum + tim_masyarakat):
+        # Koruptor menang
+        teks_kemenangan = "💸 *KORUPTOR MENANG!*\n\n"
+        teks_kemenangan += "Koruptor berhasil menguasai sistem!\n\n"
+        teks_kemenangan += "*Koruptor yang masih aktif:*\n"
+        
         for pemain in game['pemain']:
-            if pemain not in game['spy'] or pemain in game['tereliminasi']:
-                game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 5
-                role = "🕵️ Spy" if pemain in game['spy'] else "👨🏼 Warga"
-                teks += f"- {pemain['nama']} : {role}\n"
-                
+            if pemain['id'] not in game['pemain_mati'] and ROLES[game['roles'][pemain['id']]]['team'] == 'koruptor':
+                teks_kemenangan += f"- {pemain['nama']} ({game['roles'][pemain['id']]})\n"
         
-        teks += f"\n*Kata Warga:* {game['kata_rahasia']['warga']}\n"
-        teks += f"*Kata Spy:* {game['kata_rahasia']['spy']}\n"
-                
-    elif jumlah_spy == 0:  # Villagers win
-        teks = f"* Permainan Berakhir!*\nTim pemenang: *Warga*\n\n"
-        teks += "*Pemenang:*\n"
+        akhir_permainan(context, chat_id, teks_kemenangan)
         
-        # First show winning villagers
-        for pemain in game['pemain']:
-            if pemain not in game['spy'] and pemain not in game['tereliminasi']:
-                game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 20
-                teks += f"- {pemain['nama']} : 👨🏼 Warga\n"
-        
-        teks += "\n*Pemain lain:*\n"
-        # Then show other players
-        for pemain in game['pemain']:
-            if pemain in game['spy'] or pemain in game['tereliminasi']:
-                game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 5
-                role = "🕵️ Spy" if pemain in game['spy'] else "👨🏼 Warga"
-                teks += f"- {pemain['nama']} : {role}\n"
-                
-        teks += f"\n*Kata Warga:* {game['kata_rahasia']['warga']}\n"
-        teks += f"*Kata Spy:* {game['kata_rahasia']['spy']}\n"
-                
-    else:  # Continue to next round
-        game['round'] += 1  # Increment round counter
-        game['fase'] = 'deskripsi'
-        game['deskripsi_pemain'] = {}
+    else:
+        # Lanjut ke malam berikutnya
+        game['hari_ke'] += 1
         game['suara'] = {}
+        game['malam_actions'] = {}
+        game['night_results'] = {}
         
         context.bot.send_message(
             chat_id=chat_id,
-            text=(
-                f"*Putaran deskripsi ke-{game['round']} dimulai, silakan mulai deskripsi pada waktu yang sama.*\n\n"
-                "*Peran sudah dibagikan!*\n"
-                f"Spy: {len([s for s in game['spy'] if s not in game['tereliminasi']])} orang | "
-                f"Warga: {len([w for w in game['warga'] if w not in game['tereliminasi']])} orang\n\n"
-                "⏳ *Fase Deskripsi dimulai!*\n"
-                "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 40 detik)."
-            ),
+            text=f"🌙 Mempersiapkan malam ke-{game['hari_ke']}...",
             parse_mode='Markdown'
         )
         
-        
-        # New description phase timer
+        # Timer sebelum malam
         context.job_queue.run_once(
-            lambda ctx: akhir_deskripsi(ctx, chat_id),
-            40,
+            lambda ctx: mulai_malam(ctx, chat_id),
+            5,
             context=chat_id,
-            name=f"deskripsi_{chat_id}"
+            name=f"prepare_night_{chat_id}"
         )
-        return
 
-    # If game ended
+def akhir_permainan(context: CallbackContext, chat_id: int, hasil_text: str):
+    """Akhiri permainan dan tampilkan hasil"""
+    game = get_game(chat_id)
+    
+    # Tampilkan semua peran
+    hasil_text += "\n*🔍 SEMUA PERAN:*\n"
+    for pemain in game['pemain']:
+        peran = game['roles'][pemain['id']]
+        status = "💀 Mati" if pemain['id'] in game['pemain_mati'] else "❤️ Hidup"
+        hasil_text += f"- {pemain['nama']}: {peran} ({status})\n"
+    
+    # Kirim hasil akhir
     context.bot.send_message(
         chat_id=chat_id,
-        text=teks,
+        text=hasil_text,
         parse_mode='Markdown'
     )
-    reset_game(chat_id)
-
     
-    
- 
-def handle_deskripsi(update: Update, context: CallbackContext):
-    if update.effective_chat.type != 'private':
-        return
-
-    player_id = update.effective_user.id
-    deskripsi = update.message.text
-    
-    # Find active game with this player
-    for chat_id in games:
-        game = games[chat_id]
-        if game['sedang_berlangsung'] and game['fase'] == 'deskripsi':
-            if any(p['id'] == player_id for p in game['pemain'] if p not in game['tereliminasi']):
-                game['deskripsi_pemain'][player_id] = deskripsi
-                update.message.reply_text("✅ Deskripsi kamu sudah tercatat!")
-                return
-    
-    #update.message.reply_text("ℹ️ Tidak ada permainan yang membutuhkan deskripsi darimu.")
+    # Reset game
+    reset_game(chat_id, context)
 
 def cancel_game(update: Update, context: CallbackContext):
+    """Batalkan permainan yang sedang berjalan"""
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Hanya bisa dilakukan di grup!")
         return
@@ -1186,17 +1134,19 @@ def cancel_game(update: Update, context: CallbackContext):
         update.message.reply_text("❌ Tidak ada permainan yang berjalan!")
         return
 
-    # Remove all related jobs
-    current_jobs = context.job_queue.get_jobs_by_name(f"deskripsi_{chat_id}")
-    current_jobs += context.job_queue.get_jobs_by_name(f"voting_{chat_id}")
+    # Hapus semua job
+    current_jobs = []
+    for job_type in ['malam', 'voting', 'revote', 'prepare_night']:
+        current_jobs += context.job_queue.get_jobs_by_name(f"{job_type}_{chat_id}")
     
     for job in current_jobs:
         job.schedule_removal()
     
-    reset_game(chat_id)
+    reset_game(chat_id, context)
     update.message.reply_text("🔴 Permainan dibatalkan!")
 
-def daftar_pemain(update: Update, context: CallbackContext):
+def status_game(update: Update, context: CallbackContext):
+    """Cek status permainan saat ini"""
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Hanya bisa dilakukan di grup!")
         return
@@ -1204,16 +1154,28 @@ def daftar_pemain(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
     
-    if not game['pemain']:
-        update.message.reply_text("Belum ada pemain yang bergabung!")
+    if not game['sedang_berlangsung']:
+        update.message.reply_text("❌ Tidak ada permainan yang berjalan!")
         return
     
-    daftar = "\n".join([f"{i+1}. {p['nama']}" for i, p in enumerate(game['pemain'])])
-    update.message.reply_text(
-        f"Daftar Pemain ({len(game['pemain'])} orang):\n{daftar}"
-    )
+    status_text = f"🎮 *STATUS PERMAINAN*\n\n"
+    status_text += f"Hari: {game['hari_ke']}\n"
+    status_text += f"Fase: {game['fase'].capitalize()}\n\n"
+    
+    status_text += "👥 *Pemain Hidup:*\n"
+    for pemain in game['pemain']:
+        if pemain['id'] not in game['pemain_mati']:
+            status_text += f"- {pemain['nama']}\n"
+    
+    status_text += "\n💀 *Pemain Mati:*\n"
+    for pemain in game['pemain']:
+        if pemain['id'] in game['pemain_mati']:
+            status_text += f"- {pemain['nama']}\n"
+    
+    update.message.reply_text(status_text, parse_mode='Markdown')
 
 def error_handler(update: Update, context: CallbackContext):
+    """Handle error yang terjadi"""
     logger.error(msg="Exception while handling update:", exc_info=context.error)
     
     if update and update.effective_message:
@@ -1231,13 +1193,11 @@ def run_bot():
     dp.add_handler(CommandHandler("game", gabung))
     dp.add_handler(CommandHandler("mulai", mulai_permainan))
     dp.add_handler(CommandHandler("cancel", cancel_game))
-    dp.add_handler(CommandHandler("player", daftar_pemain))
-    
-    # Message handlers
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command & Filters.chat_type.private, handle_deskripsi))
+    dp.add_handler(CommandHandler("status", status_game))
     
     # Callback handlers
     dp.add_handler(CallbackQueryHandler(handle_vote, pattern=r"^vote_\d+$"))
+    dp.add_handler(CallbackQueryHandler(handle_night_action, pattern=r"^night_"))
     
     # Error handler
     dp.add_error_handler(error_handler)
@@ -1248,7 +1208,7 @@ def run_bot():
 
 @app.route('/')
 def home():
-    return "Bot Tebak Spy sedang aktif!"
+    return "Game Koruptor Bot sedang aktif!"
 
 if __name__ == '__main__':
     # Run Telegram bot in separate thread
@@ -1256,4 +1216,4 @@ if __name__ == '__main__':
     bot_thread.start()
 
     # Run Flask
-    app.run(host='0.0.0.0', port=8000)
+    app.run(host='0.0.0.0', port=8000)        
