@@ -359,7 +359,7 @@ def gabung(update: Update, context: CallbackContext):
             f"🎮 *GAME KORUPTOR DI GRUP INI!*\n"
             "⏱️ Waktu bergabung: 50 detik\n"
             "👥 Pemain: 0/10\n\n"
-            "Klik tombol di bawah untuk bergabung:",
+            "Klick tombol di bawah untuk bergabung:",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
@@ -373,7 +373,7 @@ def gabung(update: Update, context: CallbackContext):
                 text=f"🎮 *GAME KORUPTOR DI GRUP INI!*\n"
                      "⏱️ Waktu bergabung: 50 detik\n"
                      f"👥 Pemain: {len(game['pemain'])}/10\n\n"
-                     "Klik tombol di bawah untuk bergabung:",
+                     "Klick tombol di bawah untuk bergabung:",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
@@ -483,7 +483,7 @@ def join_request(update: Update, context: CallbackContext):
             text=f"🎮 *GAME KORUPTOR DI GRUP INI!*\n"
                  "⏱️ Waktu bergabung: 50 detik\n"
                  f"👥 Pemain: {len(game['pemain'])}/10\n\n"
-                 "Klik tombol di bawah untuk bergabung:",
+                 "Klick tombol di bawah untuk bergabung:",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton(
                     "🎮 Gabung Sekarang",
@@ -749,7 +749,7 @@ def mulai_malam(context: CallbackContext, chat_id: int):
     # Timer aksi malam
     context.job_queue.run_once(
         lambda ctx: akhir_malam(ctx, chat_id),
-        60,
+        120,
         context=chat_id,
         name=f"malam_{chat_id}"
     )
@@ -759,51 +759,76 @@ def handle_night_action(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     
-    chat_id = query.message.chat.id
+    user_id = query.from_user.id
+    data_parts = query.data.split('_')
+    
+    if len(data_parts) < 3:
+        logger.error(f"Data callback tidak valid: {query.data}")
+        return
+    
+    action_type = data_parts[1]
+    target_id = int(data_parts[2])
+    
+    # Dapatkan chat_id dari context atau cari di semua game
+    chat_id = None
+    for cid, game in games.items():
+        if any(p['id'] == user_id for p in game['pemain']):
+            chat_id = cid
+            break
+    
+    if not chat_id:
+        query.edit_message_text("❌ Game tidak ditemukan!")
+        return
+        
     game = get_game(chat_id)
     
     if game['fase'] != 'malam':
         query.edit_message_text("❌ Waktu aksi malam sudah habis!")
         return
     
-    user_id = query.from_user.id
-    data_parts = query.data.split('_')
-    
-    if len(data_parts) < 3:
-        return
-    
-    action_type = data_parts[1]
-    target_id = int(data_parts[2])
-    
     # Simpan aksi pemain
-    if user_id not in game['malam_actions']:
-        game['malam_actions'][user_id] = []
-    
-    game['malam_actions'][user_id].append({
+    game['malam_actions'][user_id] = {
         'type': action_type,
         'target_id': target_id,
         'waktu': time.time()
-    })
+    }
     
     # Konfirmasi ke pemain
     target_nama = next((p['nama'] for p in game['pemain'] if p['id'] == target_id), "Unknown")
     query.edit_message_text(f"✅ Aksi {action_type} terhadap {target_nama} tercatat!")
+    
+    # Log aksi
+    logger.info(f"Pemain {user_id} melakukan aksi {action_type} pada {target_id}")
 
 def akhir_malam(context: CallbackContext, chat_id: int):
     """Proses hasil aksi malam"""
     game = get_game(chat_id)
     
     if game['fase'] != 'malam':
+        logger.info(f"Fase bukan malam di akhir_malam: {game['fase']}")
         return
+    
+    # Beri tahu pemain yang belum melakukan aksi
+    for pemain in game['pemain']:
+        if (pemain['id'] not in game['pemain_mati'] and 
+            pemain['id'] not in game['malam_actions'] and
+            game['roles'][pemain['id']] in ["Koruptor", "KPK", "Jaksa", "Polisi", "Whistleblower"]):
+            try:
+                context.bot.send_message(
+                    chat_id=pemain['id'],
+                    text="❌ Anda tidak melakukan aksi malam ini!",
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Gagal kirim notifikasi ke {pemain['nama']}: {e}")
     
     # Proses semua aksi malam berdasarkan priority
     actions_by_priority = []
     
-    for user_id, actions in game['malam_actions'].items():
-        for action in actions:
-            peran = game['roles'][user_id]
-            priority = ROLES[peran]['priority']
-            actions_by_priority.append((priority, user_id, action))
+    for user_id, action in game['malam_actions'].items():
+        peran = game['roles'][user_id]
+        priority = ROLES[peran]['priority']
+        actions_by_priority.append((priority, user_id, action))
     
     # Urutkan berdasarkan priority
     actions_by_priority.sort(key=lambda x: x[0])
@@ -813,7 +838,20 @@ def akhir_malam(context: CallbackContext, chat_id: int):
         peran = game['roles'][user_id]
         target_id = action['target_id']
         
-        if peran == "KPK" and target_id not in game['pemain_mati']:
+        # Cek jika target masih hidup
+        if target_id in game['pemain_mati']:
+            try:
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text="❌ Target aksi sudah mati!",
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Gagal kirim notifikasi target mati: {e}")
+            continue
+            
+        # Proses berdasarkan jenis aksi
+        if peran == "KPK":
             # KPK menyelidiki peran target
             target_peran = game['roles'][target_id]
             try:
@@ -826,15 +864,23 @@ def akhir_malam(context: CallbackContext, chat_id: int):
             except Exception as e:
                 logger.error(f"Gagal kirim hasil penyelidikan: {e}")
         
-        elif peran == "Jaksa" and target_id not in game['pemain_mati']:
+        elif peran == "Jaksa":
             # Jaksa melindungi target dari penyelidikan
             game['night_results'][target_id] = "Dilindungi oleh Jaksa"
+            try:
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text="✅ Perlindungan berhasil diberikan!",
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Gagal kirim konfirmasi jaksa: {e}")
         
-        elif peran == "Polisi" and target_id not in game['pemain_mati']:
+        elif peran == "Polisi":
             # Polisi mengawasi target
             if target_id in game['malam_actions']:
-                target_actions = game['malam_actions'][target_id]
-                if any(a['type'] in ['koruptor', 'whistleblower'] for a in target_actions):
+                target_action = game['malam_actions'][target_id]
+                if target_action['type'] in ['koruptor', 'whistleblower']:
                     try:
                         context.bot.send_message(
                             chat_id=user_id,
@@ -844,8 +890,17 @@ def akhir_malam(context: CallbackContext, chat_id: int):
                         game['night_results'][user_id] = "Target melakukan aksi mencurigakan"
                     except Exception as e:
                         logger.error(f"Gagal kirim hasil pengawasan: {e}")
+                else:
+                    try:
+                        context.bot.send_message(
+                            chat_id=user_id,
+                            text="👮 Target tidak melakukan aksi mencurigakan.",
+                            parse_mode='Markdown'
+                        )
+                    except Exception as e:
+                        logger.error(f"Gagal kirim hasil pengawasan: {e}")
         
-        elif peran == "Whistleblower" and target_id not in game['pemain_mati']:
+        elif peran == "Whistleblower":
             # Whistleblower mengungkap tim target
             target_peran = game['roles'][target_id]
             target_team = ROLES[target_peran]['team']
@@ -859,9 +914,17 @@ def akhir_malam(context: CallbackContext, chat_id: int):
             except Exception as e:
                 logger.error(f"Gagal kirim hasil ungkap: {e}")
         
-        elif peran == "Koruptor" and target_id not in game['pemain_mati']:
+        elif peran == "Koruptor":
             # Koruptor menyuap target
             game['night_results'][target_id] = "Disuap oleh Koruptor (tidak bisa divoting besok)"
+            try:
+                context.bot.send_message(
+                    chat_id=user_id,
+                    text="✅ Suapan berhasil diberikan!",
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Gagal kirim konfirmasi koruptor: {e}")
     
     # Mulai fase siang
     mulai_siang(context, chat_id)
@@ -882,7 +945,6 @@ def mulai_siang(context: CallbackContext, chat_id: int):
             target_nama = next((p['nama'] for p in game['pemain'] if p['id'] == target_id), "Unknown")
             korban_suapan.append(target_nama)
     
-
     if korban_suapan:
         hasil_text += f"⚠️ {', '.join(korban_suapan)} disuap koruptor dan tidak bisa divoting hari ini!\n\n"
     
@@ -912,7 +974,7 @@ def mulai_siang(context: CallbackContext, chat_id: int):
                 f"{vote_targets[i]['nama']} (0)", 
                 callback_data=f"vote_{vote_targets[i]['id']}"
             ))
-        if i + 1 < len(vote_targets):
+        if i + 1 < len(vvote_targets):
             row.append(InlineKeyboardButton(
                 f"{vote_targets[i+1]['nama']} (0)", 
                 callback_data=f"vote_{vote_targets[i+1]['id']}"
@@ -1177,6 +1239,12 @@ def cek_kondisi_kemenangan(context: CallbackContext, chat_id):
                 peran = game['roles'][pemain['id']]
                 teks_kemenangan += f"- {pemain['nama']} ({ROLES[peran]['emoji']} {peran})\n"
         
+        teks_kemenangan += "\n*Peran lainnya:*\n"
+        for pemain in game['pemain']:
+            if pemain['id'] in game['pemain_mati']:
+                peran = game['roles'][pemain['id']]
+                teks_kemenangan += f"- {pemain['nama']}: ({ROLES[peran]['emoji']} {peran}) \n"
+        
         akhir_permainan(context, chat_id, teks_kemenangan)
         
     elif tim_koruptor >= (tim_penegak_hukum + tim_masyarakat):
@@ -1188,6 +1256,12 @@ def cek_kondisi_kemenangan(context: CallbackContext, chat_id):
         for pemain in game['pemain']:
             if pemain['id'] not in game['pemain_mati'] and ROLES[game['roles'][pemain['id']]]['team'] == 'koruptor':
                 teks_kemenangan += f"- {pemain['nama']} ({ROLES[game['roles'][pemain['id']]]['emoji']} {game['roles'][pemain['id']]})\n"
+        
+        teks_kemenangan += "\n*Peran lainnya:*\n"
+        for pemain in game['pemain']:
+            if pemain['id'] in game['pemain_mati']:
+                peran = game['roles'][pemain['id']]
+                teks_kemenangan += f"- {pemain['nama']}: ({ROLES[peran]['emoji']} {peran}) \n"
         
         akhir_permainan(context, chat_id, teks_kemenangan)
         
@@ -1215,13 +1289,6 @@ def cek_kondisi_kemenangan(context: CallbackContext, chat_id):
 def akhir_permainan(context: CallbackContext, chat_id: int, hasil_text: str):
     """Akhiri permainan dan tampilkan hasil"""
     game = get_game(chat_id)
-    
-    # Tampilkan semua peran
-    hasil_text += "\n*🔍 SEMUA PERAN:*\n"
-    for pemain in game['pemain']:
-        peran = game['roles'][pemain['id']]
-        status = "💀 Mati" if pemain['id'] in game['pemain_mati'] else "❤️ Hidup"
-        hasil_text += f"- {pemain['nama']}: {ROLES[peran]['emoji']} {peran} ({status})\n"
     
     # Kirim hasil akhir
     context.bot.send_message(
@@ -1330,4 +1397,5 @@ if __name__ == '__main__':
     bot_thread.start()
 
     # Run Flask
-    app.run(host='0.0.0.0', port=8000)   
+    app.run(host='0.0.0.0', port=8000)                    
+                    
